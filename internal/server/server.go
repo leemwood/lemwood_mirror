@@ -112,18 +112,31 @@ func (s *State) handleFiles(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(n)
 }
 
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func StartHTTP(addr string, s *State) error {
     mux := http.NewServeMux()
     s.Routes(mux)
     log.Printf("HTTP server listening on %s", addr)
-    return http.ListenAndServe(addr, mux)
+    return http.ListenAndServe(addr, corsMiddleware(mux))
 }
 
 func StartHTTPWithScan(addr string, s *State, scan func()) error {
     mux := http.NewServeMux()
     s.RoutesWithScan(mux, scan)
     log.Printf("HTTP server listening on %s", addr)
-    return http.ListenAndServe(addr, mux)
+    return http.ListenAndServe(addr, corsMiddleware(mux))
 }
 
 // Ensure directories exist on startup

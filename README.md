@@ -5,7 +5,9 @@
 ## 功能概述
 - 通过浏览器模拟（colly）获取启动器的 GitHub 仓库地址。
 - 使用 GitHub API（go-github v50）获取最新 release（仅最新，不取历史）。
+- 支持并发下载，可通过配置限制并发数（默认为 3）。
 - 每 10 分钟自动检查更新（可通过配置调整）。
+- 启动时执行异步初始扫描，不阻塞 Web 服务启动。
 - 下载 release 资产到 `download/启动器名/版本号/`，并生成 `info.json`。
 - 提供 HTTP 服务：
   - `GET /` 前端页面。
@@ -19,7 +21,7 @@
 - `internal/...`：配置、浏览器模拟、GitHub 交互、下载、存储、HTTP 服务。
 - `web/static`：前端 HTML/CSS/JS。
 - `download`：下载文件根目录（默认）。
-- `.trae/rules/project_rules.md`：项目规则与需求汇总。
+- `.github/workflows`：GitHub Actions 工作流，用于自动构建。
 
 ## 配置
 
@@ -33,6 +35,7 @@
 - `xget_domain`: Xget 服务域名，用于加速 GitHub 仓库的访问和下载。
 - `xget_enabled`: 是否启用 Xget 加速，`true` 或 `false`。
 - `download_timeout_minutes`: 下载单个文件的超时时间（分钟），默认为 40。
+- `concurrent_downloads`: 并发下载数，默认为 3。
 - `launchers`: 要镜像的启动器列表。
   - `name`: 启动器名称。
   - `source_url`: 包含 GitHub 仓库链接的官方页面地址。
@@ -40,18 +43,21 @@
 
 ## 构建与运行
 
-由于当前环境未安装 Go 工具链，请先安装 Go（>=1.22）：
-- Windows：访问 https://go.dev/dl/ 下载并安装，确保 `go version` 可用。
-- Linux：使用系统包管理器或从官方 tarball 安装。
+### 手动构建
 
-安装依赖并构建：
+确保你已安装 Go (>=1.21)。
+
 ```powershell
 # 在项目根目录执行
-$env:GOPROXY = "https://proxy.golang.org,direct"
-go mod download
 go build -o .\mirror.exe .\cmd\mirror
 ```
-运行（Windows）：
+
+### 自动构建
+
+每次向 `main` 分支推送代码时，GitHub Actions 会自动构建 Windows 和 Linux 的二进制文件、配置文件和前端资源，并打包为 `mirror-windows.zip` 和 `mirror-linux.tar.gz`。你可以在仓库的 Actions 页面下载这些构建产物。
+
+### 运行
+
 ```powershell
 # 可选：设置 GitHub Token
 $env:GITHUB_TOKEN = "<your token>"
@@ -59,18 +65,57 @@ $env:GITHUB_TOKEN = "<your token>"
 ./mirror.exe
 # 访问 http://localhost:8080
 ```
-运行（Linux）：
-```bash
-export GITHUB_TOKEN="<your token>"
-go build -o ./mirror ./cmd/mirror
-./mirror
-# 访问 http://localhost:8080
-```
 
 ## 使用说明
-- 前端首页显示各启动器最新版本信息与下载链接。
+- 前端首页显示各启动器最新版本信息、文件路径提示与下载链接。
 - 点击“手动刷新”将触发一次扫描更新。
 - 文件浏览可输入相对路径（例如 `.`、`fcl/`、`fcl/v1.2.3/`）查看结构。
+
+## API 集成
+
+其他网站或服务可以通过访问 `/api/status` 端点来获取镜像的最新版本信息。该端点返回一个 JSON 对象，其中包含每个启动器的详细信息。
+
+### 请求
+
+```http
+GET /api/status
+```
+
+### 响应示例
+
+```json
+{
+  "fcl": {
+    "version": "1.2.6.3",
+    "download_path": "download/fcl/1.2.6.3",
+    "assets": [
+      {
+        "name": "FCL-release-1.2.6.3-all.apk",
+        "size": 123456,
+        "download_url": "/download/fcl/1.2.6.3/FCL-release-1.2.6.3-all.apk"
+      }
+    ]
+  },
+  "zl": {
+    "version": "141000",
+    "download_path": "download/zl/141000",
+    "assets": [
+      {
+        "name": "ZalithLauncher-1.4.1.0.apk",
+        "size": 234567,
+        "download_url": "/download/zl/141000/ZalithLauncher-1.4.1.0.apk"
+      }
+    ]
+  }
+}
+```
+
+- **version**: 启动器的最新版本号。
+- **download_path**: 存储该版本文件的相对路径。
+- **assets**: 一个包含所有已下载资产文件的数组。
+  - **name**: 资产文件名。
+  - **size**: 文件大小（字节）。
+  - **download_url**: 文件的相对下载链接。
 
 ## 认证与限流
 - 建议在配置或环境变量中提供 `GITHUB_TOKEN`，提升 API 配额。
@@ -80,7 +125,3 @@ go build -o ./mirror ./cmd/mirror
 - 下载采用原子写入（.partial -> rename）。
 - 使用上下文超时控制网络请求。
 - 在内存状态更新和索引维护处使用锁保证并发安全。
-
-## 注意事项
-- 请将下载目录配置到 E盘（默认 `download` 在项目根），避免占用 C盘空间。
-- 如果 `source_url` 不是 GitHub 仓库 URL，请提供可解析到目标仓库链接的来源页面以及相应的 `repo_selector` 或正则匹配。

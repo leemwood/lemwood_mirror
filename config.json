@@ -1,4 +1,5 @@
 {
+  "server_address": "",
   "check_cron": "*/10 * * * *",
   "storage_path": "download",
   "github_token": "",

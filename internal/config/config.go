@@ -21,7 +21,8 @@ type LauncherConfig struct {
 }
 
 type Config struct {
-	CheckCron              string           `json:"check_cron"`
+	ServerAddress        string        `json:"server_address"`
+	CheckCron            string        `json:"check_cron"`
 	StoragePath            string           `json:"storage_path"`
 	GitHubToken            string           `json:"github_token"`
 	ProxyURL               string           `json:"proxy_url"`

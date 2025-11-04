@@ -47,7 +47,7 @@ func NewDownloader(timeoutMinutes, concurrentDownloads int) *Downloader {
 	}
 }
 
-func (d *Downloader) DownloadLatest(ctx context.Context, launcher string, destBase string, proxyURL string, assetProxyURL string, xgetEnabled bool, xgetDomain string, rel *github.RepositoryRelease) (string, error) {
+func (d *Downloader) DownloadLatest(ctx context.Context, launcher string, destBase string, proxyURL string, assetProxyURL string, xgetEnabled bool, xgetDomain string, rel *github.RepositoryRelease, serverAddress string) (string, error) {
 	if rel == nil {
 		return "", errors.New("nil release")
 	}
@@ -69,9 +69,21 @@ func (d *Downloader) DownloadLatest(ctx context.Context, launcher string, destBa
 	info.Name = rel.GetName()
 	info.PublishedAt = rel.GetPublishedAt().Time
 	for _, a := range rel.Assets {
+		var downloadURL string
+		if serverAddress != "" {
+			downloadURL = fmt.Sprintf("%s/download/%s/%s/%s", serverAddress, launcher, version, a.GetName())
+		} else {
+			publicIP, err := getPublicIP()
+			if err != nil {
+				log.Printf("Could not get public IP: %v. Falling back to GitHub URL for asset %s", err, a.GetName())
+				downloadURL = a.GetBrowserDownloadURL()
+			} else {
+				downloadURL = fmt.Sprintf("http://%s:8080/download/%s/%s/%s", publicIP, launcher, version, a.GetName())
+			}
+		}
 		info.Assets = append(info.Assets, ReleaseAssetSimple{
 			Name: a.GetName(),
-			URL:  a.GetBrowserDownloadURL(),
+			URL:  downloadURL,
 			Size: a.GetSize(),
 		})
 	}
@@ -126,6 +138,21 @@ func (d *Downloader) DownloadLatest(ctx context.Context, launcher string, destBa
 	}
 
 	return indexPath, nil
+}
+
+func getPublicIP() (string, error) {
+	resp, err := http.Get("http://ifconfig.me/ip")
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	ip, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return string(ip), nil
 }
 
 func (d *Downloader) downloadAsset(ctx context.Context, client *http.Client, asset *github.ReleaseAsset, dir, assetProxyURL string, xgetEnabled bool, xgetDomain string) error {

@@ -23,6 +23,10 @@ async function loadStatus() {
             const publishedDate = v.published_at ? new Date(v.published_at).toLocaleString() : '未知';
             meta.textContent = `发布于：${publishedDate}`;
 
+            const pathDiv = document.createElement('div');
+            pathDiv.className = 'path';
+            pathDiv.textContent = `路径: ${v.download_path || '未知'}`;
+
             const assetsDiv = document.createElement('div');
             assetsDiv.className = 'assets';
 
@@ -38,6 +42,7 @@ async function loadStatus() {
 
             card.appendChild(title);
             card.appendChild(meta);
+            card.appendChild(pathDiv);
             card.appendChild(assetsDiv);
             container.appendChild(card);
         }

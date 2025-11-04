@@ -109,10 +109,10 @@ input[type="text"] {
     margin-bottom: 10px;
 }
 
-.card .meta {
+.card .meta, .path {
     font-size: 0.9em;
-    color: #888;
-    margin-bottom: 15px;
+    color: #666;
+    margin-bottom: 10px;
 }
 
 .card .assets a {

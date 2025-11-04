@@ -28,7 +28,8 @@ type Config struct {
 	AssetProxyURL          string           `json:"asset_proxy_url"`
 	XgetDomain             string           `json:"xget_domain"`
 	XgetEnabled            bool             `json:"xget_enabled"`
-	DownloadTimeoutMinutes int              `json:"download_timeout_minutes"`
+	DownloadTimeoutMinutes int    `json:"download_timeout_minutes"`
+    ConcurrentDownloads    int    `json:"concurrent_downloads"`
 	Launchers              []LauncherConfig `json:"launchers"`
 }
 

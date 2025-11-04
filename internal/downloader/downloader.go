@@ -12,9 +12,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
-	github "github.com/google/go-github/v50/github"
+	"github.com/google/go-github/v50/github"
 )
 
 type ReleaseInfo struct {
@@ -31,8 +32,22 @@ type ReleaseAssetSimple struct {
 	Size int    `json:"size"`
 }
 
-// DownloadLatest downloads assets for the latest release to destBase/launcher/tag, returns index.json path.
-func DownloadLatest(ctx context.Context, launcher string, destBase string, proxyURL string, assetProxyURL string, xgetEnabled bool, xgetDomain string, rel *github.RepositoryRelease) (string, error) {
+type Downloader struct {
+	httpClient *http.Client
+	semaphore  chan struct{}
+}
+
+func NewDownloader(timeoutMinutes, concurrentDownloads int) *Downloader {
+	if concurrentDownloads <= 0 {
+		concurrentDownloads = 3 // Default to 3 if invalid
+	}
+	return &Downloader{
+		httpClient: &http.Client{Timeout: time.Duration(timeoutMinutes) * time.Minute},
+		semaphore:  make(chan struct{}, concurrentDownloads),
+	}
+}
+
+func (d *Downloader) DownloadLatest(ctx context.Context, launcher string, destBase string, proxyURL string, assetProxyURL string, xgetEnabled bool, xgetDomain string, rel *github.RepositoryRelease) (string, error) {
 	if rel == nil {
 		return "", errors.New("nil release")
 	}
@@ -48,7 +63,6 @@ func DownloadLatest(ctx context.Context, launcher string, destBase string, proxy
 		return "", fmt.Errorf("mkdir %s: %w", dir, err)
 	}
 
-	// 1. Prepare and write index.json
 	var info ReleaseInfo
 	info.Launcher = launcher
 	info.TagName = rel.GetTagName()
@@ -57,7 +71,7 @@ func DownloadLatest(ctx context.Context, launcher string, destBase string, proxy
 	for _, a := range rel.Assets {
 		info.Assets = append(info.Assets, ReleaseAssetSimple{
 			Name: a.GetName(),
-			URL:  a.GetBrowserDownloadURL(), // Original URL
+			URL:  a.GetBrowserDownloadURL(),
 			Size: a.GetSize(),
 		})
 	}
@@ -72,143 +86,146 @@ func DownloadLatest(ctx context.Context, launcher string, destBase string, proxy
 	}
 	log.Printf("已将版本信息写入 %s", indexPath)
 
-	// Create a new HTTP client with proxy if specified
-	client := &http.Client{Timeout: 5 * time.Minute}
+	client := d.httpClient
 	if proxyURL != "" {
 		proxy, err := url.Parse(proxyURL)
 		if err != nil {
 			return "", fmt.Errorf("解析代理URL失败: %w", err)
 		}
-		client.Transport = &http.Transport{Proxy: http.ProxyURL(proxy)}
+		// Create a new client for proxy, as the default one might be shared
+		client = &http.Client{
+			Timeout: d.httpClient.Timeout,
+			Transport: &http.Transport{Proxy: http.ProxyURL(proxy)},
+		}
 	}
 
-	// 2. Loop through assets and download if necessary
+	var wg sync.WaitGroup
+	errCh := make(chan error, len(rel.Assets))
+
 	for _, asset := range rel.Assets {
-		name := asset.GetName()
-		outfile := filepath.Join(dir, name)
+		wg.Add(1)
+		go func(asset *github.ReleaseAsset) {
+			defer wg.Done()
+			d.semaphore <- struct{}{}
+			defer func() { <-d.semaphore }()
 
-		// Check if file exists and is valid
-		if fileInfo, err := os.Stat(outfile); err == nil {
-			if fileInfo.Size() == int64(asset.GetSize()) {
-				log.Printf("文件 %s 已存在且大小一致，跳过下载。", name)
-				continue // Skip to next asset
-			}
-			log.Printf("文件 %s 已存在但大小不一致 (本地: %d, 远程: %d)，将重新下载。", name, fileInfo.Size(), asset.GetSize())
-		}
-
-		// Use the same robust download logic as before
-		if err := func() error {
-			url := asset.GetBrowserDownloadURL()
-			if url != "" && assetProxyURL != "" {
-				url = assetProxyURL + url
-			}
-			if url != "" && xgetEnabled && strings.HasPrefix(url, "https://github.com/") {
-				url = strings.Replace(url, "https://github.com/", xgetDomain+"/gh/", 1)
-			}
-			if url == "" {
-				// asset API URL requires auth header; skip for simplicity
-				log.Printf("资源 %s 没有下载链接，跳过", name)
-				return nil // Not an error, just skip this asset
-			}
-			if name == "" {
-				name = filepath.Base(url)
-			}
-			log.Printf("开始下载 %s 到 %s", url, outfile)
-
-			// download atomically
-			partial := outfile + ".partial"
-
-			var resp *http.Response
-			var err error
-			// simple retry
-			for i := 0; i < 3; i++ {
-				req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-				if err != nil {
-					return err
-				}
-				resp, err = client.Do(req)
-				if err == nil && resp.StatusCode == http.StatusOK {
-					break
-				}
-				if resp != nil {
-					resp.Body.Close()
-				}
-				log.Printf("下载 %s 失败，5秒后重试...", url)
-				time.Sleep(5 * time.Second)
-			}
+			err := d.downloadAsset(ctx, client, asset, dir, assetProxyURL, xgetEnabled, xgetDomain)
 			if err != nil {
-				return err
+				errCh <- err
 			}
-			defer resp.Body.Close()
-			if resp.StatusCode != http.StatusOK {
-				return fmt.Errorf("下载资源 %s 失败，状态码: %d", url, resp.StatusCode)
-			}
-			f, err := os.Create(partial)
-			if err != nil {
-				return err
-			}
-			defer func() {
-				f.Close()
-				os.Remove(partial) // removed if rename below succeeds
-			}()
+		}(asset)
+	}
 
-			// Log progress
-			progressWriter := &progressWriter{
-				total:      resp.ContentLength,
-				fileName:   name,
-				lastUpdate: time.Now(),
-			}
-			if _, err := io.Copy(f, io.TeeReader(resp.Body, progressWriter)); err != nil {
-				return err
-			}
+	wg.Wait()
+	close(errCh)
 
-			// close before rename
-			if err := f.Close(); err != nil {
-				return err
-			}
-			if err := os.Rename(partial, outfile); err != nil {
-				return err
-			}
-			log.Printf("完成下载 %s", outfile)
-			return nil
-		}(); err != nil {
-			log.Printf("下载 %s 失败: %v", name, err)
-			return "", err // Make download failure a fatal error for the whole process
+	for err := range errCh {
+		if err != nil {
+			return "", err
 		}
 	}
 
 	return indexPath, nil
 }
 
+func (d *Downloader) downloadAsset(ctx context.Context, client *http.Client, asset *github.ReleaseAsset, dir, assetProxyURL string, xgetEnabled bool, xgetDomain string) error {
+	name := asset.GetName()
+	outfile := filepath.Join(dir, name)
+
+	if fileInfo, err := os.Stat(outfile); err == nil {
+		if fileInfo.Size() == int64(asset.GetSize()) {
+			log.Printf("文件 %s 已存在且大小一致，跳过下载。", name)
+			return nil
+		}
+		log.Printf("文件 %s 已存在但大小不一致 (本地: %d, 远程: %d)，将重新下载。", name, fileInfo.Size(), asset.GetSize())
+	}
+
+	downloadURL := asset.GetBrowserDownloadURL()
+	if downloadURL != "" && assetProxyURL != "" {
+		downloadURL = assetProxyURL + downloadURL
+	}
+	if downloadURL != "" && xgetEnabled && strings.HasPrefix(downloadURL, "https://github.com/") {
+		downloadURL = strings.Replace(downloadURL, "https://github.com/", xgetDomain+"/gh/", 1)
+	}
+	if downloadURL == "" {
+		log.Printf("资源 %s 没有下载链接，跳过", name)
+		return nil
+	}
+	if name == "" {
+		name = filepath.Base(downloadURL)
+	}
+	log.Printf("开始下载 %s 到 %s", downloadURL, outfile)
+
+	partial := outfile + ".partial"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
+	if err != nil {
+		return err
+	}
+
+	var resp *http.Response
+	for i := 0; i < 3; i++ {
+		resp, err = client.Do(req)
+		if err == nil && resp.StatusCode == http.StatusOK {
+			break
+		}
+		if resp != nil {
+			resp.Body.Close()
+		}
+		log.Printf("下载 %s 失败，5秒后重试...", downloadURL)
+		time.Sleep(5 * time.Second)
+	}
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("下载资源 %s 失败，状态码: %d", downloadURL, resp.StatusCode)
+	}
+
+	f, err := os.Create(partial)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		f.Close()
+		os.Remove(partial)
+	}()
+
+	progressWriter := &progressWriter{
+		total:      resp.ContentLength,
+		fileName:   name,
+		lastUpdate: time.Now(),
+	}
+	if _, err := io.Copy(f, io.TeeReader(resp.Body, progressWriter)); err != nil {
+		return err
+	}
+
+	if err := f.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(partial, outfile); err != nil {
+		return err
+	}
+
+	log.Printf("完成下载 %s", outfile)
+	return nil
+}
+
 type progressWriter struct {
-	total       int64
-	written     int64
-	fileName    string
-	lastUpdate  time.Time
-	lastWritten int64
+	total      int64
+	written    int64
+	fileName   string
+	lastUpdate time.Time
 }
 
 func (pw *progressWriter) Write(p []byte) (int, error) {
 	n := len(p)
 	pw.written += int64(n)
-
-	now := time.Now()
-	duration := now.Sub(pw.lastUpdate)
-	if duration > time.Second || pw.written == pw.total {
-		var speed float64
-		if s := duration.Seconds(); s > 0 {
-			speed = float64(pw.written-pw.lastWritten) / s
-		}
-		pw.lastWritten = pw.written
-		pw.lastUpdate = now
-
+	if time.Since(pw.lastUpdate) > 2*time.Second {
+		pw.lastUpdate = time.Now()
 		percentage := float64(pw.written) / float64(pw.total) * 100
-		if pw.total > 0 {
-			log.Printf("正在下载 %s: %d / %d 字节 (%.2f%%) - %.2f KB/s", pw.fileName, pw.written, pw.total, percentage, speed/1024)
-		} else {
-			log.Printf("正在下载 %s: %d 字节 - %.2f KB/s", pw.fileName, pw.written, speed/1024)
-		}
+		log.Printf("下载 %s: %d / %d (%.2f%%)", pw.fileName, pw.written, pw.total, percentage)
 	}
-
 	return n, nil
 }

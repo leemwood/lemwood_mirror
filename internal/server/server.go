@@ -83,9 +83,15 @@ func (s *State) handleStatus(w http.ResponseWriter, r *http.Request) {
 		for version, infoPath := range versions {
 			v, err := storage.ReadInfoJSON(infoPath)
 			if err != nil {
-				log.Printf("read info.json failed for %s %s: %v", launcher, version, err)
-				continue
-			}
+					log.Printf("read info.json failed for %s %s: %v", launcher, version, err)
+					continue
+				}
+				relPath, err := filepath.Rel(s.BasePath, filepath.Dir(infoPath))
+				if err != nil {
+					log.Printf("could not get relative path for %s: %v", infoPath, err)
+				} else {
+					v["download_path"] = filepath.ToSlash(filepath.Join("download", relPath))
+				}
 			resp[launcher] = append(resp[launcher], v)
 		}
 	}

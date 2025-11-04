@@ -77,7 +77,8 @@ func main() {
                     gh.BackoffIfRateLimited(resp)
                     return
                 }
-				infoPath, err := downloader.DownloadLatest(ctx, lcfg.Name, base, cfg.ProxyURL, cfg.AssetProxyURL, cfg.XgetEnabled, cfg.XgetDomain, rel)
+				downer := downloader.NewDownloader(cfg.DownloadTimeoutMinutes, cfg.ConcurrentDownloads)
+				infoPath, err := downer.DownloadLatest(ctx, lcfg.Name, base, cfg.ProxyURL, cfg.AssetProxyURL, cfg.XgetEnabled, cfg.XgetDomain, rel)
 				if err != nil {
 					log.Printf("%s: 下载失败: %v", lcfg.Name, err)
 					return
@@ -99,7 +100,7 @@ func main() {
 	}
 
 	// initial scan
-	scan()
+	go scan()
 
 	// cron schedule
 	c := cron.New()
@@ -111,6 +112,7 @@ func main() {
 	defer c.Stop()
 
     // http server with manual scan endpoint
+    log.Printf("Starting server on :8080")
     if err := server.StartHTTPWithScan(":8080", s, scan); err != nil {
         log.Fatalf("http 服务器出错: %v", err)
     }

@@ -11,7 +11,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Set up Go
       uses: actions/setup-go@v4
@@ -28,7 +28,7 @@ jobs:
       run: zip -r mirror-windows.zip mirror.exe config.json web
 
     - name: Upload Windows Package
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: mirror-windows-package
         path: mirror-windows.zip
@@ -37,7 +37,7 @@ jobs:
       run: tar -czvf mirror-linux.tar.gz mirror config.json web
 
     - name: Upload Linux Package
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: mirror-linux-package
         path: mirror-linux.tar.gz

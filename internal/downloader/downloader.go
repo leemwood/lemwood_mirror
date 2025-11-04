@@ -71,7 +71,7 @@ func (d *Downloader) DownloadLatest(ctx context.Context, launcher string, destBa
 	for _, a := range rel.Assets {
 		var downloadURL string
 		if serverAddress != "" {
-			downloadURL = fmt.Sprintf("%s/download/%s/%s/%s", serverAddress, launcher, version, a.GetName())
+			downloadURL = fmt.Sprintf("%s:%d/download/%s/%s/%s", serverAddress, serverPort, launcher, version, a.GetName())
 		} else {
 			publicIP, err := getPublicIP()
 			if err != nil {

@@ -29,7 +29,7 @@
 
 - `github_token`: 你的 GitHub Personal Access Token，用于提高 API 请求速率限制。
 - `storage_path`: 下载文件的存储目录，默认为 `download`。
-- `server_address`: 用于生成 `index.json` 中资源下载链接的服务器地址，务必带着端口填写，例如 `http://127.0.0.1:8080`。如果留空，程序将自动获取并使用服务器的公共 IP 地址。
+- `server_address`: 用于生成 `index.json` 中资源下载链接的服务器地址（IP 或域名），不应包含端口号，例如 `http://127.0.0.1`。如果留空，程序将自动获取并使用服务器的公共 IP 地址。
 - `server_port`: HTTP 服务的监听端口，默认为 8080。此端口也会用于生成 `index.json` 中的下载链接。
 - `check_cron`: 自动检查更新的 cron 表达式，默认为每 10 分钟检查一次 (`*/10 * * * *`)。
 - `proxy_url`: 用于网络请求的 HTTP/HTTPS 代理地址，例如 `http://127.0.0.1:7890`。

@@ -122,3 +122,30 @@ func TestLatestAllEndpoint(t *testing.T) {
 		t.Fatalf("missing header")
 	}
 }
+
+func TestInitFromDiskLoadsAll(t *testing.T) {
+	base := t.TempDir()
+	os.MkdirAll(filepath.Join(base, "fcl", "v1.2.3"), 0o755)
+	p1, _ := writeInfo(filepath.Join(base, "fcl", "v1.2.3"), "v1.2.3")
+	_ = p1
+	os.MkdirAll(filepath.Join(base, "zl", "141000"), 0o755)
+	p2, _ := writeInfo(filepath.Join(base, "zl", "141000"), "141000")
+	_ = p2
+	s := NewState(base)
+	if err := s.InitFromDisk(); err != nil {
+		t.Fatalf("init from disk: %v", err)
+	}
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/status", nil)
+	s.handleStatus(rr, req)
+	var body map[string][]map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatalf("bad json: %v", err)
+	}
+	if _, ok := body["fcl"]; !ok {
+		t.Fatalf("missing fcl")
+	}
+	if _, ok := body["zl"]; !ok {
+		t.Fatalf("missing zl")
+	}
+}

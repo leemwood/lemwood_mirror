@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -64,6 +65,33 @@ func (s *State) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/files", s.handleFiles)
 	mux.HandleFunc("/api/latest", s.handleLatestAll)
 	mux.HandleFunc("/api/latest/", s.handleLatestLauncher)
+}
+
+func (s *State) InitFromDisk() error {
+	base := s.BasePath
+	return filepath.WalkDir(base, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if filepath.Base(path) != "index.json" {
+			return nil
+		}
+		rel, err := filepath.Rel(base, filepath.Dir(path))
+		if err != nil {
+			return nil
+		}
+		parts := strings.Split(filepath.ToSlash(rel), "/")
+		if len(parts) < 2 {
+			return nil
+		}
+		launcher := parts[0]
+		version := parts[1]
+		s.UpdateIndex(launcher, version, path)
+		return nil
+	})
 }
 
 // RoutesWithScan adds /api/scan endpoint to trigger a scan callback.

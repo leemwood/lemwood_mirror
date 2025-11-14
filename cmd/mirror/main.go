@@ -35,7 +35,10 @@ func main() {
 	if err := server.EnsureDir(base); err != nil {
 		log.Fatalf("确保目录存在失败: %v", err)
 	}
-	s := server.NewState(base)
+    s := server.NewState(base)
+    if err := s.InitFromDisk(); err != nil {
+        log.Printf("初始化索引失败: %v", err)
+    }
 	ghc := gh.NewClient(cfg.GitHubToken)
 
 	var mu sync.Mutex

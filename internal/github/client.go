@@ -26,30 +26,30 @@ func NewClient(token string) *Client {
 	return &Client{cli: github.NewClient(httpClient)}
 }
 
-// ParseOwnerRepo extracts owner and repo from a full GitHub repo URL.
+// ParseOwnerRepo 从完整的 GitHub 仓库 URL 中提取所有者和仓库名。
 func ParseOwnerRepo(repoURL string) (string, string, error) {
-	// Expected: https://github.com/<owner>/<repo>
+	// 预期格式：https://github.com/<owner>/<repo>
 	parts := strings.Split(strings.TrimPrefix(repoURL, "https://github.com/"), "/")
 	if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
-		return "", "", errors.New("invalid repo url, need https://github.com/<owner>/<repo>")
+		return "", "", errors.New("无效的仓库 url，需要 https://github.com/<owner>/<repo>")
 	}
 	owner := parts[0]
 	repo := parts[1]
 	return owner, repo, nil
 }
 
-// LatestRelease fetches only the latest release metadata.
+// LatestRelease 仅获取最新的发布元数据。
 func (c *Client) LatestRelease(ctx context.Context, owner, repo string) (*github.RepositoryRelease, *github.Response, error) {
     return c.cli.Repositories.GetLatestRelease(ctx, owner, repo)
 }
 
-// BackoffIfRateLimited checks response for rate limiting and sleeps if needed.
+// BackoffIfRateLimited 检查响应是否受到速率限制，并在需要时休眠。
 func BackoffIfRateLimited(resp *github.Response) {
     if resp == nil || resp.Rate.Remaining > 0 {
         return
     }
 	reset := resp.Rate.Reset.Time
-	// sleep until reset + small margin
+	// 休眠直到重置时间 + 小段余量
 	d := time.Until(reset) + 2*time.Second
 	if d > 0 && d < 15*time.Minute {
 		time.Sleep(d)

@@ -14,13 +14,13 @@ type FileNode struct {
 	Children []FileNode  `json:"children,omitempty"`
 }
 
-// ListTree lists directory recursively starting at base/path, with safety to prevent escape.
+// ListTree 递归列出从 base/path 开始的目录，并具有防止逃逸的安全性。
 func ListTree(base string, relPath string) (FileNode, error) {
 	root := filepath.Join(base, relPath)
 	clean := filepath.Clean(root)
-	// ensure clean starts with base
+	// 确保 clean 以 base 开头
 	if !isSubPath(base, clean) {
-		return FileNode{}, errors.New("invalid path")
+		return FileNode{}, errors.New("无效路径")
 	}
 	fi, err := os.Stat(clean)
 	if err != nil {
@@ -66,7 +66,7 @@ func startsWithDotDot(p string) bool {
 	return p == ".." || (len(p) > 2 && p[:3] == ".."+string(filepath.Separator))
 }
 
-// ReadInfoJSON reads info.json into generic map for UI.
+// ReadInfoJSON 读取 info.json 到通用 map 以供 UI 使用。
 func ReadInfoJSON(path string) (map[string]any, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {

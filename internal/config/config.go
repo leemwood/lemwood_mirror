@@ -9,10 +9,10 @@ import (
 	"path/filepath"
 )
 
-// LauncherConfig describes how to discover a launcher's GitHub repo URL from a source page.
-// If RepoSelector starts with "regex:", it will be treated as a regular expression to match anchor hrefs.
-// If RepoSelector is empty, the first anchor href containing "github.com" will be used.
-// SourceURL can directly be a GitHub repo URL (e.g., https://github.com/owner/repo), in which case selector is ignored.
+// LauncherConfig 描述如何从源页面发现启动器的 GitHub 仓库 URL。
+// 如果 RepoSelector 以 "regex:" 开头，它将被视为正则表达式来匹配锚点 href。
+// 如果 RepoSelector 为空，则使用第一个包含 "github.com" 的锚点 href。
+// SourceURL 可以直接是 GitHub 仓库 URL（例如 https://github.com/owner/repo），在这种情况下选择器被忽略。
 
 type LauncherConfig struct {
 	Name         string `json:"name"`
@@ -40,24 +40,24 @@ func LoadConfig(projectRoot string) (*Config, error) {
 	cfgPath := filepath.Join(projectRoot, "config.json")
 	f, err := os.Open(cfgPath)
 	if err != nil {
-		return nil, fmt.Errorf("open config.json: %w", err)
+		return nil, fmt.Errorf("打开 config.json 失败: %w", err)
 	}
 	defer f.Close()
 	b, err := io.ReadAll(f)
 	if err != nil {
-		return nil, fmt.Errorf("read config.json: %w", err)
+		return nil, fmt.Errorf("读取 config.json 失败: %w", err)
 	}
 	var cfg Config
 	if err := json.Unmarshal(b, &cfg); err != nil {
-		return nil, fmt.Errorf("parse config.json: %w", err)
+		return nil, fmt.Errorf("解析 config.json 失败: %w", err)
 	}
 	if cfg.StoragePath == "" {
-		return nil, errors.New("config.storage_path must not be empty")
+		return nil, errors.New("config.storage_path 不能为空")
 	}
 	if cfg.CheckCron == "" {
-		cfg.CheckCron = "*/10 * * * *" // default every 10 minutes
+		cfg.CheckCron = "*/10 * * * *" // 默认每 10 分钟
 	}
-	// Allow env var override for GitHub token
+	// 允许环境变量覆盖 GitHub 令牌
 	if env := os.Getenv("GITHUB_TOKEN"); env != "" {
 		cfg.GitHubToken = env
 	}

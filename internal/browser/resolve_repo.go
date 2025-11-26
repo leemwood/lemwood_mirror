@@ -10,27 +10,27 @@ import (
     "github.com/gocolly/colly/v2"
 )
 
-// ResolveRepoURL visits the given source URL and attempts to find a GitHub repo link.
-// If source is already a github.com URL, it returns it directly.
-// repoSelector: "regex:<pattern>" will match anchor hrefs with the regex.
-// Otherwise treated as a CSS selector and first matching element's href is used.
+// ResolveRepoURL 访问给定的源 URL 并尝试查找 GitHub 仓库链接。
+// 如果源已经是 github.com URL，则直接返回。
+// repoSelector: "regex:<pattern>" 将使用正则表达式匹配锚点 href。
+// 否则视为 CSS 选择器，使用第一个匹配元素的 href。
 func ResolveRepoURL(source string, repoSelector string) (string, error) {
     if source == "" {
-        return "", errors.New("source url empty")
+        return "", errors.New("源 url 为空")
     }
     u, err := url.Parse(source)
     if err != nil {
-        return "", fmt.Errorf("invalid source url: %w", err)
+        return "", fmt.Errorf("无效的源 url: %w", err)
     }
 
-    // If the source looks like a direct GitHub repo URL (https://github.com/owner/repo), return as-is
+    // 如果源看起来像直接的 GitHub 仓库 URL (https://github.com/owner/repo)，则按原样返回
     if strings.Contains(u.Host, "github.com") {
         parts := strings.Split(strings.Trim(u.Path, "/"), "/")
         if len(parts) >= 2 && parts[0] != "" && parts[1] != "" {
             // Direct repo URL
             return "https://github.com/" + parts[0] + "/" + parts[1], nil
         }
-        // Otherwise, it's a GitHub page (e.g., search/results). We will crawl anchors below.
+        // 否则，它是 GitHub 页面（例如搜索/结果）。我们将爬取下面的锚点。
     }
 
     c := colly.NewCollector(
@@ -45,7 +45,7 @@ func ResolveRepoURL(source string, repoSelector string) (string, error) {
             pattern := strings.TrimPrefix(repoSelector, "regex:")
             compiled, err := regexp.Compile(pattern)
             if err != nil {
-                return "", fmt.Errorf("invalid regex in repo_selector: %w", err)
+                return "", fmt.Errorf("repo_selector 中的正则表达式无效: %w", err)
             }
             re = compiled
             cssSelector = "a"
@@ -54,7 +54,7 @@ func ResolveRepoURL(source string, repoSelector string) (string, error) {
         }
     }
 
-    // Default strict match: https://github.com/<owner>/<repo> or /<owner>/<repo>
+    // 默认严格匹配：https://github.com/<owner>/<repo> 或 /<owner>/<repo>
     defaultAbsRe := regexp.MustCompile(`^https://github\.com/[^/]+/[^/#?]+$`)
     defaultRelRe := regexp.MustCompile(`^/[^/]+/[^/#?]+$`)
 
@@ -66,7 +66,7 @@ func ResolveRepoURL(source string, repoSelector string) (string, error) {
         if href == "" {
             return
         }
-        // If custom regex provided
+        // 如果提供了自定义正则表达式
         if re != nil {
             if re.MatchString(href) {
                 if strings.HasPrefix(href, "/") {
@@ -77,7 +77,7 @@ func ResolveRepoURL(source string, repoSelector string) (string, error) {
             }
             return
         }
-        // Otherwise apply default matching against GitHub repo URL
+        // 否则对 GitHub 仓库 URL 应用默认匹配
         if defaultAbsRe.MatchString(href) {
             found = href
             return
@@ -88,10 +88,10 @@ func ResolveRepoURL(source string, repoSelector string) (string, error) {
         }
     })
     if err := c.Visit(source); err != nil {
-        return "", fmt.Errorf("visit source: %w", err)
+        return "", fmt.Errorf("访问源失败: %w", err)
     }
     if found == "" {
-        return "", errors.New("github repo url not found from source page")
+        return "", errors.New("未从源页面找到 github 仓库 url")
     }
     return found, nil
 }

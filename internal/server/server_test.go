@@ -21,16 +21,16 @@ func writeInfo(dir string, name string) (string, error) {
 
 func TestCompareVersions(t *testing.T) {
 	if compareVersions("v1.2.10", "1.2.3") <= 0 {
-		t.Fatalf("expected 1.2.10 > 1.2.3")
+		t.Fatalf("预期 1.2.10 > 1.2.3")
 	}
 	if compareVersions("141000", "140900") <= 0 {
-		t.Fatalf("expected 141000 > 140900")
+		t.Fatalf("预期 141000 > 140900")
 	}
 	if compareVersions("1.4.1.0", "1.4.0.9") <= 0 {
-		t.Fatalf("expected 1.4.1.0 > 1.4.0.9")
+		t.Fatalf("预期 1.4.1.0 > 1.4.0.9")
 	}
 	if compareVersions("1.0.0", "1.0.0") != 0 {
-		t.Fatalf("expected equal")
+		t.Fatalf("预期相等")
 	}
 }
 
@@ -48,24 +48,24 @@ func TestPickLatestStable(t *testing.T) {
 	s.UpdateIndex("fcl", "v1.2.4-rc", p2)
 
 	if s.latest["fcl"] != "v1.2.3" {
-		t.Fatalf("expected latest stable v1.2.3, got %s", s.latest["fcl"])
+		t.Fatalf("预期最新稳定版 v1.2.3, 实际得到 %s", s.latest["fcl"])
 	}
 
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/status", nil)
 	s.handleStatus(rr, req)
 	if got := rr.Header().Get("X-Latest-Versions"); got != "" {
-		t.Fatalf("status should not include latest header, got %q", got)
+		t.Fatalf("状态不应包含最新版本头, 实际得到 %q", got)
 	}
 	var body map[string][]map[string]any
 	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
-		t.Fatalf("bad json: %v", err)
+		t.Fatalf("无效的 json: %v", err)
 	}
 	if len(body["fcl"]) == 0 {
-		t.Fatalf("missing fcl entries")
+		t.Fatalf("缺少 fcl 条目")
 	}
 	if _, ok := body["fcl"][0]["latest"]; ok {
-		t.Fatalf("status should not include latest field")
+		t.Fatalf("状态不应包含最新字段")
 	}
 }
 
@@ -85,10 +85,10 @@ func TestLatestEndpointAndRollback(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/latest/zl", nil)
 	s.handleLatestLauncher(rr, req)
 	if rr.Code != http.StatusOK {
-		t.Fatalf("status %d", rr.Code)
+		t.Fatalf("状态 %d", rr.Code)
 	}
 	if got := rr.Header().Get("X-Latest-Version"); got != "141000" {
-		t.Fatalf("unexpected header: %q", got)
+		t.Fatalf("非预期的头: %q", got)
 	}
 
 	s.RemoveVersion("zl", "141000")
@@ -96,7 +96,7 @@ func TestLatestEndpointAndRollback(t *testing.T) {
 	req2 := httptest.NewRequest(http.MethodGet, "/api/latest/zl", nil)
 	s.handleLatestLauncher(rr2, req2)
 	if got := rr2.Header().Get("X-Latest-Version"); got != "140900" {
-		t.Fatalf("rollback header: %q", got)
+		t.Fatalf("回滚头: %q", got)
 	}
 }
 
@@ -116,10 +116,10 @@ func TestLatestAllEndpoint(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/latest", nil)
 	s.handleLatestAll(rr, req)
 	if rr.Code != http.StatusOK {
-		t.Fatalf("status %d", rr.Code)
+		t.Fatalf("状态 %d", rr.Code)
 	}
 	if got := rr.Header().Get("X-Latest-Versions"); got == "" {
-		t.Fatalf("missing header")
+		t.Fatalf("缺少头")
 	}
 }
 
@@ -133,19 +133,19 @@ func TestInitFromDiskLoadsAll(t *testing.T) {
 	_ = p2
 	s := NewState(base)
 	if err := s.InitFromDisk(); err != nil {
-		t.Fatalf("init from disk: %v", err)
+		t.Fatalf("从磁盘初始化: %v", err)
 	}
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/status", nil)
 	s.handleStatus(rr, req)
 	var body map[string][]map[string]any
 	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
-		t.Fatalf("bad json: %v", err)
+		t.Fatalf("无效的 json: %v", err)
 	}
 	if _, ok := body["fcl"]; !ok {
-		t.Fatalf("missing fcl")
+		t.Fatalf("缺少 fcl")
 	}
 	if _, ok := body["zl"]; !ok {
-		t.Fatalf("missing zl")
+		t.Fatalf("缺少 zl")
 	}
 }

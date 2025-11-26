@@ -39,7 +39,7 @@ type Downloader struct {
 
 func NewDownloader(timeoutMinutes, concurrentDownloads int) *Downloader {
 	if concurrentDownloads <= 0 {
-		concurrentDownloads = 3 // Default to 3 if invalid
+		concurrentDownloads = 3 // 如果无效，默认为 3
 	}
 	return &Downloader{
 		httpClient: &http.Client{Timeout: time.Duration(timeoutMinutes) * time.Minute},
@@ -49,7 +49,7 @@ func NewDownloader(timeoutMinutes, concurrentDownloads int) *Downloader {
 
 func (d *Downloader) DownloadLatest(ctx context.Context, launcher string, destBase string, proxyURL string, assetProxyURL string, xgetEnabled bool, xgetDomain string, rel *github.RepositoryRelease, serverAddress string, serverPort int, downloadUrlBase string) (string, error) {
 	if rel == nil {
-		return "", errors.New("nil release")
+		return "", errors.New("release 为空")
 	}
 	version := rel.GetTagName()
 	if version == "" {
@@ -60,7 +60,7 @@ func (d *Downloader) DownloadLatest(ctx context.Context, launcher string, destBa
 	}
 	dir := filepath.Join(destBase, launcher, version)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", fmt.Errorf("mkdir %s: %w", dir, err)
+		return "", fmt.Errorf("创建目录 %s 失败: %w", dir, err)
 	}
 
 	var info ReleaseInfo
@@ -71,8 +71,8 @@ func (d *Downloader) DownloadLatest(ctx context.Context, launcher string, destBa
 	for _, a := range rel.Assets {
 		var downloadURL string
 		if downloadUrlBase != "" {
-			// If downloadUrlBase is provided, use it directly.
-			// Ensure downloadUrlBase has scheme, if not default to http://
+			// 如果提供了 downloadUrlBase，则直接使用它。
+			// 确保 downloadUrlBase 具有协议头，如果没有则默认为 http://
 			baseURL := downloadUrlBase
 			if !strings.HasPrefix(baseURL, "http://") && !strings.HasPrefix(baseURL, "https://") {
 				baseURL = "http://" + baseURL
@@ -84,7 +84,7 @@ func (d *Downloader) DownloadLatest(ctx context.Context, launcher string, destBa
 		} else {
 			publicIP, err := getPublicIP()
 			if err != nil {
-				log.Printf("Could not get public IP: %v. Falling back to GitHub URL for asset %s", err, a.GetName())
+				log.Printf("无法获取公网 IP: %v。回退到资源 %s 的 GitHub URL", err, a.GetName())
 				downloadURL = a.GetBrowserDownloadURL()
 			} else {
 				downloadURL = FormatDownloadURL("", serverPort, publicIP, launcher, version, a.GetName())
@@ -113,7 +113,7 @@ func (d *Downloader) DownloadLatest(ctx context.Context, launcher string, destBa
 		if err != nil {
 			return "", fmt.Errorf("解析代理URL失败: %w", err)
 		}
-		// Create a new client for proxy, as the default one might be shared
+		// 为代理创建新的客户端，因为默认客户端可能是共享的
 		client = &http.Client{
 			Timeout:   d.httpClient.Timeout,
 			Transport: &http.Transport{Proxy: http.ProxyURL(proxy)},
@@ -272,13 +272,13 @@ func FormatDownloadURL(serverAddress string, serverPort int, publicIP string, la
 
 	if serverAddress != "" {
 		host = serverAddress
-		// If serverAddress already has scheme, use it and strip it for host processing if needed,
-		// but typically serverAddress in config might be just domain or domain:port.
-		// Assuming serverAddress is just the address part from the user request "配置文件中的端口为应用网址和api请求端口，地址也是".
-		// If serverAddress contains http/https, we should parse it or just use it.
-		// However, the requirement says "下载地址格式必须为地址：端口".
+		// 如果 serverAddress 已经有协议头，使用它并在需要时剥离它用于主机处理，
+		// 但通常配置中的 serverAddress 只是域名或域名:端口。
+		// 假设 serverAddress 只是用户请求中的地址部分。
+		// 如果 serverAddress 包含 http/https，我们需要解析它或直接使用它。
+		// 然而，要求说“下载地址格式必须为地址：端口”。
 
-		// Simple heuristic: if serverAddress starts with http:// or https://, use that scheme.
+		// 简单启发式：如果 serverAddress 以 http:// 或 https:// 开头，则使用该协议。
 		if strings.HasPrefix(serverAddress, "http://") {
 			scheme = "http"
 			host = strings.TrimPrefix(serverAddress, "http://")
@@ -290,7 +290,7 @@ func FormatDownloadURL(serverAddress string, serverPort int, publicIP string, la
 		host = publicIP
 	}
 
-	// Format host with port if not 80/443
+	// 如果端口不是 80/443，则格式化带端口的主机
 	if serverPort != 80 && serverPort != 443 {
 		host = fmt.Sprintf("%s:%d", host, serverPort)
 	}

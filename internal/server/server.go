@@ -16,7 +16,7 @@ import (
 
 type State struct {
 	BasePath string
-	// cached status: map[launcher]map[version]infoPath
+	// 缓存状态：map[launcher]map[version]infoPath
 	mu     sync.RWMutex
 	index  map[string]map[string]string
 	latest map[string]string
@@ -47,24 +47,137 @@ func (s *State) RemoveVersion(launcher string, version string) {
 }
 
 func (s *State) Routes(mux *http.ServeMux) {
-	// Static UI
+	// 静态 UI
 	staticDir := filepath.Join("web", "static")
-	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir))))
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" {
+
+	// 安全静态资源处理器
+	mux.HandleFunc("/static/", func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		// 再次检查路径遍历以防万一，尽管中间件会捕获它
+		if containsDotDot(path) {
 			http.NotFound(w, r)
 			return
 		}
-		http.ServeFile(w, r, filepath.Join(staticDir, "index.html"))
+
+		relPath := strings.TrimPrefix(path, "/static/")
+		if relPath == "" || relPath == "/" {
+			http.NotFound(w, r)
+			return
+		}
+
+		fullPath := filepath.Join(staticDir, relPath)
+		cleanPath := filepath.Clean(fullPath)
+
+		// 验证路径是否在 staticDir 内
+		absStaticDir, _ := filepath.Abs(staticDir)
+		absPath, _ := filepath.Abs(cleanPath)
+		if !strings.HasPrefix(absPath, absStaticDir) {
+			log.Printf("安全警告：拦截到来自 %s 的路径逃逸尝试，请求路径：%s", r.RemoteAddr, path)
+			http.NotFound(w, r)
+			return
+		}
+
+		http.ServeFile(w, r, cleanPath)
 	})
-	// Downloads
-	mux.Handle("/download/", http.StripPrefix("/download/", http.FileServer(http.Dir(s.BasePath))))
-	// API endpoints
+
+	// 根路径处理器
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if path == "/" {
+			http.ServeFile(w, r, filepath.Join(staticDir, "index.html"))
+			return
+		}
+		if path == "/index.html" {
+			// 手动服务内容以避免 http.ServeFile 的 301 重定向
+			f, err := os.Open(filepath.Join(staticDir, "index.html"))
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			defer f.Close()
+			d, _ := f.Stat()
+			http.ServeContent(w, r, "index.html", d.ModTime(), f)
+			return
+		}
+		if path == "/404.html" {
+			http.ServeFile(w, r, filepath.Join(staticDir, "404.html"))
+			return
+		}
+
+		log.Printf("安全警告：拦截到来自 %s 的非法根目录访问尝试，请求路径：%s", r.RemoteAddr, path)
+		w.WriteHeader(http.StatusNotFound)
+		http.ServeFile(w, r, filepath.Join(staticDir, "404.html"))
+	})
+
+	// 下载 - 安全处理器
+	mux.HandleFunc("/download/", func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if containsDotDot(path) {
+			http.NotFound(w, r)
+			return
+		}
+
+		relPath := strings.TrimPrefix(path, "/download/")
+		fullPath := filepath.Join(s.BasePath, relPath)
+		cleanPath := filepath.Clean(fullPath)
+
+		// 验证路径是否在 BasePath 内
+		absBase, _ := filepath.Abs(s.BasePath)
+		absPath, _ := filepath.Abs(cleanPath)
+		if !strings.HasPrefix(absPath, absBase) {
+			log.Printf("安全警告：拦截到来自 %s 的路径逃逸尝试，请求路径：%s", r.RemoteAddr, path)
+			http.NotFound(w, r)
+			return
+		}
+
+		// 检查文件是否存在
+		_, err := os.Stat(cleanPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				log.Printf("文件未找到：%s", path)
+				http.NotFound(w, r)
+				return
+			}
+			log.Printf("访问文件出错：%s, %v", path, err)
+			http.NotFound(w, r)
+			return
+		}
+
+		http.ServeFile(w, r, cleanPath)
+	})
+
+	// API 端点
 	mux.HandleFunc("/api/status", s.handleStatus)
 	mux.HandleFunc("/api/status/", s.handleLauncherStatus)
 	mux.HandleFunc("/api/files", s.handleFiles)
 	mux.HandleFunc("/api/latest", s.handleLatestAll)
 	mux.HandleFunc("/api/latest/", s.handleLatestLauncher)
+}
+
+// containsDotDot 检查路径是否包含 ".." 元素
+func containsDotDot(v string) bool {
+	if !strings.Contains(v, "..") {
+		return false
+	}
+	for _, ent := range strings.FieldsFunc(v, func(r rune) bool { return r == '/' || r == '\\' }) {
+		if ent == ".." {
+			return true
+		}
+	}
+	return false
+}
+
+func SecurityMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		// 拦截路径遍历尝试
+		if containsDotDot(path) {
+			log.Printf("安全警告：拦截到来自 %s 的路径遍历尝试，请求路径：%s", r.RemoteAddr, path)
+			http.NotFound(w, r)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (s *State) InitFromDisk() error {
@@ -94,7 +207,7 @@ func (s *State) InitFromDisk() error {
 	})
 }
 
-// RoutesWithScan adds /api/scan endpoint to trigger a scan callback.
+// RoutesWithScan 添加 /api/scan 端点以触发扫描回调。
 func (s *State) RoutesWithScan(mux *http.ServeMux, scan func()) {
 	s.Routes(mux)
 	mux.HandleFunc("/api/scan", func(w http.ResponseWriter, r *http.Request) {
@@ -103,13 +216,13 @@ func (s *State) RoutesWithScan(mux *http.ServeMux, scan func()) {
 			return
 		}
 		go func() {
-			// run scan asynchronously to avoid blocking request
+			// 异步运行扫描以避免阻塞请求
 			defer func() { recover() }()
 			scan()
 		}()
 		w.WriteHeader(http.StatusAccepted)
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"status": "scan started"})
+		json.NewEncoder(w).Encode(map[string]string{"status": "扫描已开始"})
 	})
 }
 
@@ -124,18 +237,18 @@ func (s *State) handleStatus(w http.ResponseWriter, r *http.Request) {
 		indexCopy[k] = inner
 	}
 	s.mu.RUnlock()
-	// Build response reading info.json content
+	// 读取 info.json 内容构建响应
 	resp := make(map[string][]map[string]any)
 	for launcher, versions := range indexCopy {
 		for version, infoPath := range versions {
 			v, err := storage.ReadInfoJSON(infoPath)
 			if err != nil {
-				log.Printf("read info.json failed for %s %s: %v", launcher, version, err)
+				log.Printf("读取 info.json 失败 %s %s: %v", launcher, version, err)
 				continue
 			}
 			relPath, err := filepath.Rel(s.BasePath, filepath.Dir(infoPath))
 			if err != nil {
-				log.Printf("could not get relative path for %s: %v", infoPath, err)
+				log.Printf("无法获取 %s 的相对路径: %v", infoPath, err)
 			} else {
 				v["download_path"] = filepath.ToSlash(filepath.Join("download", relPath))
 			}
@@ -161,12 +274,12 @@ func (s *State) handleLauncherStatus(w http.ResponseWriter, r *http.Request) {
 	for version, infoPath := range versions {
 		v, err := storage.ReadInfoJSON(infoPath)
 		if err != nil {
-			log.Printf("read info.json failed for %s %s: %v", launcherID, version, err)
+			log.Printf("读取 info.json 失败 %s %s: %v", launcherID, version, err)
 			continue
 		}
 		relPath, err := filepath.Rel(s.BasePath, filepath.Dir(infoPath))
 		if err != nil {
-			log.Printf("could not get relative path for %s: %v", infoPath, err)
+			log.Printf("无法获取 %s 的相对路径: %v", infoPath, err)
 		} else {
 			v["download_path"] = filepath.ToSlash(filepath.Join("download", relPath))
 		}
@@ -383,18 +496,18 @@ func corsMiddleware(next http.Handler) http.Handler {
 func StartHTTP(addr string, s *State) error {
 	mux := http.NewServeMux()
 	s.Routes(mux)
-	log.Printf("HTTP server listening on %s", addr)
-	return http.ListenAndServe(addr, corsMiddleware(mux))
+	log.Printf("HTTP 服务器已启动，监听地址：%s", addr)
+	return http.ListenAndServe(addr, SecurityMiddleware(corsMiddleware(mux)))
 }
 
 func StartHTTPWithScan(addr string, s *State, scan func()) error {
 	mux := http.NewServeMux()
 	s.RoutesWithScan(mux, scan)
-	log.Printf("HTTP server listening on %s", addr)
-	return http.ListenAndServe(addr, corsMiddleware(mux))
+	log.Printf("HTTP 服务器已启动，监听地址：%s", addr)
+	return http.ListenAndServe(addr, SecurityMiddleware(corsMiddleware(mux)))
 }
 
-// Ensure directories exist on startup
+// 确保目录存在于启动时
 func EnsureDir(path string) error {
 	return os.MkdirAll(path, 0o755)
 }

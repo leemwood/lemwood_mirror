@@ -42,7 +42,7 @@ async function loadStatus() {
                     link.textContent = a.name;
                     link.setAttribute('download', a.name);
 
-                    // If download_url_base is used, the URL might be absolute, so we check if it starts with http
+                    // 如果使用了 download_url_base，URL 可能是绝对路径，所以我们检查它是否以 http 开头
                     if (a.url && (a.url.startsWith('http://') || a.url.startsWith('https://'))) {
                         link.href = a.url;
                     }

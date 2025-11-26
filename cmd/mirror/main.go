@@ -105,10 +105,10 @@ func main() {
 		log.Printf("扫描完成")
 	}
 
-	// initial scan
+	// 初始扫描
 	go scan()
 
-	// cron schedule
+	// 定时任务
 	c := cron.New()
 	_, err = c.AddFunc(cfg.CheckCron, scan)
 	if err != nil {
@@ -117,9 +117,9 @@ func main() {
 	c.Start()
 	defer c.Stop()
 
-	// http server with manual scan endpoint
+	// 带有手动扫描端点的 HTTP 服务器
 	addr := fmt.Sprintf(":%d", cfg.ServerPort)
-	log.Printf("Starting server on %s", addr)
+	log.Printf("正在启动服务器于 %s", addr)
 	if err := server.StartHTTPWithScan(addr, s, scan); err != nil {
 		log.Fatalf("http 服务器出错: %v", err)
 	}

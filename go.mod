@@ -7,6 +7,7 @@ require (
 	github.com/google/go-github/v50 v50.1.0
 	github.com/robfig/cron/v3 v3.0.1
 	golang.org/x/oauth2 v0.22.0
+	modernc.org/sqlite v1.40.1
 )
 
 require (
@@ -37,5 +38,4 @@ require (
 	modernc.org/libc v1.66.10 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.40.1 // indirect
 )

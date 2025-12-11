@@ -234,29 +234,58 @@ func (s *State) InitFromDisk() error {
 
 // pickLatest 选择最新版本
 func (s *State) pickLatest(versions map[string]string) string {
-	var latest string
-	for v := range versions {
-		if latest == "" {
-			latest = v
-			continue
-		}
-		// 优先稳定版 (不含连字符)
-		stableLatest := !strings.Contains(latest, "-")
-		stableV := !strings.Contains(v, "-")
-
-		if stableLatest && !stableV {
-			continue
-		}
-		if !stableLatest && stableV {
-			latest = v
-			continue
-		}
-
-		if compareVersions(v, latest) > 0 {
-			latest = v
+	if len(versions) == 0 {
+		return ""
+	}
+	
+	// 首先查找标记为 is_latest 的版本
+	for v, infoPath := range versions {
+		if content, err := os.ReadFile(infoPath); err == nil {
+			var info map[string]interface{}
+			if err := json.Unmarshal(content, &info); err == nil {
+				if isLatest, ok := info["is_latest"].(bool); ok && isLatest {
+					return v
+				}
+			}
 		}
 	}
-	return latest
+	
+	// 如果没有找到标记为 is_latest 的版本，使用版本比较作为后备方案
+	// 分离稳定版和非稳定版
+	var stableVersions []string
+	var unstableVersions []string
+	
+	for v := range versions {
+		if strings.Contains(v, "-") {
+			unstableVersions = append(unstableVersions, v)
+		} else {
+			stableVersions = append(stableVersions, v)
+		}
+	}
+	
+	// 优先从稳定版中选择最新的
+	if len(stableVersions) > 0 {
+		latest := stableVersions[0]
+		for _, v := range stableVersions[1:] {
+			if compareVersions(v, latest) > 0 {
+				latest = v
+			}
+		}
+		return latest
+	}
+	
+	// 如果没有稳定版，从非稳定版中选择最新的
+	if len(unstableVersions) > 0 {
+		latest := unstableVersions[0]
+		for _, v := range unstableVersions[1:] {
+			if compareVersions(v, latest) > 0 {
+				latest = v
+			}
+		}
+		return latest
+	}
+	
+	return ""
 }
 
 // compareVersions 比较版本
@@ -306,7 +335,10 @@ func (s *State) handleStatus(w http.ResponseWriter, r *http.Request) {
                  var fileInfo map[string]any
                  if err := json.Unmarshal(content, &fileInfo); err == nil {
                      for k, val := range fileInfo {
-                         info[k] = val
+                         // 排除 is_latest 字段
+                         if k != "is_latest" {
+                             info[k] = val
+                         }
                      }
                  }
              }
@@ -335,7 +367,10 @@ func (s *State) handleLauncherStatus(w http.ResponseWriter, r *http.Request) {
                  var fileInfo map[string]any
                  if err := json.Unmarshal(content, &fileInfo); err == nil {
                      for k, val := range fileInfo {
-                         info[k] = val
+                         // 排除 is_latest 字段
+                         if k != "is_latest" {
+                             info[k] = val
+                         }
                      }
                  }
              }

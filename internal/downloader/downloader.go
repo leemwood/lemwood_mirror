@@ -23,6 +23,7 @@ type ReleaseInfo struct {
 	TagName     string               `json:"tag_name"`
 	Name        string               `json:"name"`
 	PublishedAt time.Time            `json:"published_at"`
+	IsLatest    bool                 `json:"is_latest"`
 	Assets      []ReleaseAssetSimple `json:"assets"`
 }
 
@@ -47,7 +48,7 @@ func NewDownloader(timeoutMinutes, concurrentDownloads int) *Downloader {
 	}
 }
 
-func (d *Downloader) DownloadLatest(ctx context.Context, launcher string, destBase string, proxyURL string, assetProxyURL string, xgetEnabled bool, xgetDomain string, rel *github.RepositoryRelease, serverAddress string, serverPort int, downloadUrlBase string) (string, error) {
+func (d *Downloader) DownloadLatest(ctx context.Context, launcher string, destBase string, proxyURL string, assetProxyURL string, xgetEnabled bool, xgetDomain string, rel *github.RepositoryRelease, serverAddress string, serverPort int, downloadUrlBase string, isLatest bool) (string, error) {
 	if rel == nil {
 		return "", errors.New("release 为空")
 	}
@@ -68,6 +69,7 @@ func (d *Downloader) DownloadLatest(ctx context.Context, launcher string, destBa
 	info.TagName = rel.GetTagName()
 	info.Name = rel.GetName()
 	info.PublishedAt = rel.GetPublishedAt().Time
+	info.IsLatest = isLatest
 	for _, a := range rel.Assets {
 		var downloadURL string
 		if downloadUrlBase != "" {
@@ -276,7 +278,7 @@ func FormatDownloadURL(serverAddress string, serverPort int, publicIP string, la
 		// 但通常配置中的 serverAddress 只是域名或域名:端口。
 		// 假设 serverAddress 只是用户请求中的地址部分。
 		// 如果 serverAddress 包含 http/https，我们需要解析它或直接使用它。
-		// 然而，要求说“下载地址格式必须为地址：端口”。
+		// 然而，要求说"下载地址格式必须为地址：端口"。
 
 		// 简单启发式：如果 serverAddress 以 http:// 或 https:// 开头，则使用该协议。
 		if strings.HasPrefix(serverAddress, "http://") {

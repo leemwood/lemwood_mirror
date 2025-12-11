@@ -1,6 +1,11 @@
 async function loadStatus() {
     const res = await fetch('/api/status');
     const data = await res.json();
+    
+    // 获取最新版本信息
+    const latestRes = await fetch('/api/latest');
+    const latestData = await latestRes.json();
+    
     const container = document.getElementById('status');
     container.innerHTML = '';
     const launchers = Object.keys(data);
@@ -8,24 +13,74 @@ async function loadStatus() {
         container.textContent = '暂无数据';
         return;
     }
+    
+    // 按启动器分组
     for (const name of launchers) {
         const versions = data[name];
         versions.sort((a, b) => String(b.tag_name || b.name).localeCompare(String(a.tag_name || a.name)));
+        
+        // 创建启动器分组容器
+        const launcherGroup = document.createElement('div');
+        launcherGroup.className = 'launcher-group';
+        
+        // 创建启动器标题（可折叠）
+        const launcherHeader = document.createElement('div');
+        launcherHeader.className = 'launcher-header';
+        
+        const launcherTitle = document.createElement('h3');
+        launcherTitle.className = 'launcher-title';
+        
+        const toggleIcon = document.createElement('span');
+        toggleIcon.className = 'toggle-icon';
+        toggleIcon.textContent = '▼';
+        
+        const titleText = document.createElement('span');
+        titleText.textContent = name;
+        
+        // 显示最新版本标签
+        const latestVersion = latestData[name];
+        if (latestVersion) {
+            const latestBadge = document.createElement('span');
+            latestBadge.className = 'latest-badge';
+            latestBadge.textContent = `最新: ${latestVersion}`;
+            launcherTitle.appendChild(toggleIcon);
+            launcherTitle.appendChild(titleText);
+            launcherTitle.appendChild(latestBadge);
+        } else {
+            launcherTitle.appendChild(toggleIcon);
+            launcherTitle.appendChild(titleText);
+        }
+        
+        launcherHeader.appendChild(launcherTitle);
+        
+        // 创建版本容器
+        const versionsContainer = document.createElement('div');
+        versionsContainer.className = 'versions-container';
+        
+        // 添加所有版本
         for (const v of versions) {
             const card = document.createElement('div');
             card.className = 'card';
+            
+            // 如果是最新版本，添加标记
+            const isLatest = latestVersion === (v.tag_name || v.name);
+            if (isLatest) {
+                card.classList.add('latest-version');
+            }
 
             const title = document.createElement('h3');
-            title.textContent = `${name} - ${v.tag_name || v.name}`;
+            title.textContent = v.tag_name || v.name;
+            if (isLatest) {
+                const badge = document.createElement('span');
+                badge.className = 'version-badge';
+                badge.textContent = 'Latest';
+                title.appendChild(badge);
+            }
 
             const meta = document.createElement('div');
             meta.className = 'meta';
             const publishedDate = v.published_at ? new Date(v.published_at).toLocaleString() : '未知';
             meta.textContent = `发布于：${publishedDate}`;
-
-            const pathDiv = document.createElement('div');
-            pathDiv.className = 'path';
-            pathDiv.textContent = `路径: ${v.download_path || '未知'}`;
 
             const assetsDiv = document.createElement('div');
             assetsDiv.className = 'assets';
@@ -42,7 +97,6 @@ async function loadStatus() {
                     link.textContent = a.name;
                     link.setAttribute('download', a.name);
 
-                    // 如果使用了 download_url_base，URL 可能是绝对路径，所以我们检查它是否以 http 开头
                     if (a.url && (a.url.startsWith('http://') || a.url.startsWith('https://'))) {
                         link.href = a.url;
                     }
@@ -72,10 +126,19 @@ async function loadStatus() {
 
             card.appendChild(title);
             card.appendChild(meta);
-            card.appendChild(pathDiv);
             card.appendChild(assetsDiv);
-            container.appendChild(card);
+            versionsContainer.appendChild(card);
         }
+        
+        // 添加折叠功能
+        launcherHeader.addEventListener('click', () => {
+            versionsContainer.classList.toggle('collapsed');
+            toggleIcon.textContent = versionsContainer.classList.contains('collapsed') ? '▶' : '▼';
+        });
+        
+        launcherGroup.appendChild(launcherHeader);
+        launcherGroup.appendChild(versionsContainer);
+        container.appendChild(launcherGroup);
     }
 }
 

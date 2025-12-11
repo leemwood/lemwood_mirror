@@ -39,10 +39,10 @@ func main() {
 	if err := db.InitDB(base); err != nil {
 		log.Fatalf("初始化数据库失败: %v", err)
 	}
-    s := server.NewState(base)
-    if err := s.InitFromDisk(); err != nil {
-        log.Printf("初始化索引失败: %v", err)
-    }
+	s := server.NewState(base)
+	if err := s.InitFromDisk(); err != nil {
+		log.Printf("初始化索引失败: %v", err)
+	}
 	ghc := gh.NewClient(cfg.GitHubToken)
 
 	var mu sync.Mutex
@@ -86,7 +86,7 @@ func main() {
 					return
 				}
 				downer := downloader.NewDownloader(cfg.DownloadTimeoutMinutes, cfg.ConcurrentDownloads)
-				infoPath, err := downer.DownloadLatest(ctx, lcfg.Name, base, cfg.ProxyURL, cfg.AssetProxyURL, cfg.XgetEnabled, cfg.XgetDomain, rel, cfg.ServerAddress, cfg.ServerPort, cfg.DownloadUrlBase)
+				infoPath, err := downer.DownloadLatest(ctx, lcfg.Name, base, cfg.ProxyURL, cfg.AssetProxyURL, cfg.XgetEnabled, cfg.XgetDomain, rel, cfg.ServerAddress, cfg.ServerPort, cfg.DownloadUrlBase, true)
 				if err != nil {
 					log.Printf("%s: 下载失败: %v", lcfg.Name, err)
 					return

@@ -143,22 +143,87 @@ input[type="text"] {
 }
 
 #status {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    display: flex;
+    flex-direction: column;
     gap: 20px;
 }
 
-#status .card {
-  background-color: var(--card-bg-color);
-  border: 1px solid var(--border-color);
-  padding: 20px;
-  border-radius: 8px;
-  transition: transform 0.2s, box-shadow 0.2s;
+/* 启动器分组 */
+.launcher-group {
+    background-color: var(--card-bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
 }
 
-#status .card:hover {
+.launcher-header {
+    background-color: var(--header-bg-color);
+    padding: 15px 20px;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s;
+}
+
+.launcher-header:hover {
+    background-color: var(--border-color);
+}
+
+.launcher-title {
+    margin: 0;
+    font-size: 1.3em;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.toggle-icon {
+    font-size: 0.8em;
+    transition: transform 0.3s;
+    display: inline-block;
+}
+
+.latest-badge {
+    font-size: 0.6em;
+    background-color: #28a745;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-weight: normal;
+    margin-left: auto;
+}
+
+/* 版本容器 */
+.versions-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    padding: 20px;
+    max-height: 2000px;
+    overflow: hidden;
+    transition: max-height 0.3s ease, padding 0.3s ease;
+}
+
+.versions-container.collapsed {
+    max-height: 0;
+    padding: 0 20px;
+}
+
+.versions-container .card {
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    padding: 20px;
+    border-radius: 8px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.versions-container .card:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.versions-container .card.latest-version {
+    border-color: #28a745;
+    border-width: 2px;
 }
 
 .card h3 {
@@ -166,6 +231,18 @@ input[type="text"] {
     font-size: 1.2em;
     border-bottom: 1px solid var(--border-color);
     padding-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.version-badge {
+    font-size: 0.6em;
+    background-color: #28a745;
+    color: white;
+    padding: 3px 10px;
+    border-radius: 10px;
+    font-weight: normal;
 }
 
 .meta, .path {

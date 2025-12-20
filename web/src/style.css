@@ -28,21 +28,6 @@
   background: rgba(136, 136, 136, 0.6); 
 }
 
-/* Utilities */
-.glass {
-  background: rgba(255, 255, 255, 0.7) !important;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-
-.dark .glass {
-  background: rgba(30, 41, 59, 0.7) !important;
-}
-
-.text-shadow {
-  text-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
 .transition-swing {
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.5, 1);
 }

@@ -29,12 +29,12 @@
         <v-hover v-slot="{ isHovering, props }">
           <v-card 
             v-bind="props"
-            :elevation="isHovering ? 8 : 2"
-            class="h-100 transition-swing rounded-xl d-flex flex-column"
+            :elevation="isHovering ? 2 : 0"
+            class="h-100 transition-swing rounded d-flex flex-column"
             border
           >
             <div :class="`bg-${item.color}-lighten-5 pa-6 d-flex justify-center align-center position-relative`" style="height: 160px;">
-               <v-avatar :color="item.color" size="80" class="elevation-4">
+               <v-avatar :color="item.color" size="80">
                   <v-icon size="40" color="white">{{ item.icon }}</v-icon>
                </v-avatar>
                <v-chip 
@@ -66,7 +66,7 @@
                 variant="flat" 
                 size="large" 
                 prepend-icon="mdi-download"
-                class="rounded-lg"
+                class="rounded"
                 :href="getLatestDownloadUrl(item)"
                 v-if="item.hasAssets"
               >
@@ -77,7 +77,7 @@
                 block 
                 variant="tonal" 
                 size="large"
-                class="rounded-lg ml-0"
+                class="rounded ml-0"
                 @click="openHistory(item)"
               >
                 历史版本
@@ -90,7 +90,7 @@
 
     <!-- History Dialog -->
     <v-dialog v-model="historyDialog" max-width="900" scrollable transition="dialog-bottom-transition">
-      <v-card class="rounded-xl" v-if="selectedLauncher">
+      <v-card class="rounded" v-if="selectedLauncher">
         <v-toolbar color="surface" class="px-2 border-b">
            <v-toolbar-title class="font-weight-bold">
              {{ selectedLauncher.name }} 版本历史
@@ -102,7 +102,7 @@
         <v-card-text class="pa-4 bg-surface-light">
            <v-row>
              <v-col v-for="v in selectedLauncher.versions" :key="v.tag_name || v.name" cols="12" md="6">
-               <v-card variant="flat" class="border rounded-lg h-100">
+               <v-card variant="flat" class="border rounded h-100">
                  <v-card-item>
                    <template v-slot:title>
                      <div class="d-flex align-center justify-space-between">
@@ -151,7 +151,7 @@
       </v-card>
     </v-dialog>
     
-    <v-snackbar v-model="snackbar" :timeout="2000" color="success" rounded="pill">
+    <v-snackbar v-model="snackbar" :timeout="2000" color="success" rounded>
        链接已复制
     </v-snackbar>
   </div>

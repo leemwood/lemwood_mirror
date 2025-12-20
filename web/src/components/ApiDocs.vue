@@ -10,7 +10,7 @@
 
     <v-row>
       <v-col cols="12" md="4" class="hidden-sm-and-down">
-         <v-card position="sticky" style="top: 80px" variant="outlined" class="rounded-lg">
+         <v-card position="sticky" style="top: 80px" variant="outlined" class="rounded">
            <v-list density="compact" nav>
              <v-list-subheader>Endpoint Index</v-list-subheader>
              <v-list-item 
@@ -33,7 +33,7 @@
         <v-card
           v-for="(endpoint, index) in endpoints"
           :key="index"
-          class="mb-4 rounded-lg border"
+          class="mb-4 rounded border"
           variant="flat"
           :id="`endpoint-${index}`"
         >

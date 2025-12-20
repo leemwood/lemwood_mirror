@@ -1,5 +1,5 @@
 <template>
-  <v-card class="mb-6 rounded-lg" variant="flat" color="surface-light" border>
+  <v-card class="mb-6 rounded" variant="flat" color="surface-light" border>
     <v-card-item>
       <template v-slot:prepend>
          <v-icon color="primary" class="mr-2">mdi-bullhorn-variant</v-icon>

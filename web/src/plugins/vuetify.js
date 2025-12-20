@@ -13,29 +13,29 @@ export default createVuetify({
       light: {
         dark: false,
         colors: {
-          primary: '#2563EB', // Royal Blue
-          secondary: '#10B981', // Emerald
+          primary: '#1867C0', // Classic Vuetify Blue
+          secondary: '#5CBBF6',
           surface: '#FFFFFF',
-          'surface-light': '#F8FAFC',
-          background: '#F1F5F9', // Slate 100
-          error: '#EF4444',
-          info: '#3B82F6',
-          success: '#22C55E',
-          warning: '#F59E0B',
+          'surface-light': '#F5F5F5',
+          background: '#FFFFFF',
+          error: '#FF5252',
+          info: '#2196F3',
+          success: '#4CAF50',
+          warning: '#FB8C00',
         },
       },
       dark: {
         dark: true,
         colors: {
-            primary: '#60A5FA', // Blue 400
-            secondary: '#34D399', // Emerald 400
-            surface: '#1E293B', // Slate 800
-            'surface-light': '#334155', // Slate 700
-            background: '#0F172A', // Slate 900
-            error: '#F87171',
-            info: '#60A5FA',
-            success: '#4ADE80',
-            warning: '#FBBF24',
+            primary: '#2196F3', // Blue 500
+            secondary: '#424242', // Grey 800
+            surface: '#121212',
+            'surface-light': '#212121',
+            background: '#000000',
+            error: '#FF5252',
+            info: '#2196F3',
+            success: '#4CAF50',
+            warning: '#FB8C00',
         }
       }
     },

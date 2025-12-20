@@ -10,7 +10,7 @@
       <!-- Overview Cards -->
       <v-row class="mb-6">
         <v-col cols="12" sm="6" md="3">
-          <v-card class="py-6 rounded-xl" elevation="2" border>
+          <v-card class="py-6 rounded" elevation="0" border>
             <div class="d-flex flex-column align-center">
                <v-icon color="primary" size="32" class="mb-2">mdi-eye-outline</v-icon>
                <div class="text-h4 font-weight-bold">{{ stats.total_visits?.toLocaleString() || '-' }}</div>
@@ -19,7 +19,7 @@
           </v-card>
         </v-col>
         <v-col cols="12" sm="6" md="3">
-          <v-card class="py-6 rounded-xl" elevation="2" border>
+          <v-card class="py-6 rounded" elevation="0" border>
              <div class="d-flex flex-column align-center">
                <v-icon color="success" size="32" class="mb-2">mdi-download-outline</v-icon>
                <div class="text-h4 font-weight-bold">{{ stats.total_downloads?.toLocaleString() || '-' }}</div>
@@ -28,7 +28,7 @@
           </v-card>
         </v-col>
          <v-col cols="12" sm="6" md="3">
-          <v-card class="py-6 rounded-xl" elevation="2" border>
+          <v-card class="py-6 rounded" elevation="0" border>
              <div class="d-flex flex-column align-center">
                <v-icon color="warning" size="32" class="mb-2">mdi-server-network</v-icon>
                <div class="text-h4 font-weight-bold">{{ Object.keys(stats.daily_stats || {}).length || '-' }}</div>
@@ -37,7 +37,7 @@
           </v-card>
         </v-col>
          <v-col cols="12" sm="6" md="3">
-          <v-card class="py-6 rounded-xl" elevation="2" border>
+          <v-card class="py-6 rounded" elevation="0" border>
              <div class="d-flex flex-column align-center">
                <v-icon color="info" size="32" class="mb-2">mdi-earth</v-icon>
                <div class="text-h4 font-weight-bold">{{ stats.geo_distribution?.length || '-' }}</div>
@@ -50,7 +50,7 @@
       <v-row>
         <!-- Global Map -->
         <v-col cols="12" lg="8">
-          <v-card class="rounded-xl h-100 pa-4" border>
+          <v-card class="rounded h-100 pa-4" border>
             <v-card-title class="font-weight-bold">
                 <v-icon color="primary" class="mr-2">mdi-map-marker-radius</v-icon>
                 全球访问分布
@@ -63,14 +63,14 @@
 
         <!-- Top Downloads -->
         <v-col cols="12" lg="4">
-          <v-card class="rounded-xl h-100 pa-4" border>
+          <v-card class="rounded h-100 pa-4" border>
             <v-card-title class="font-weight-bold">
                 <v-icon color="success" class="mr-2">mdi-fire</v-icon>
                 热门资源排行
             </v-card-title>
              <div style="height: 400px; overflow-y: auto;">
                  <v-list density="compact">
-                    <v-list-item v-for="(item, i) in stats.top_downloads" :key="i" class="mb-2 rounded-lg bg-surface-light">
+                    <v-list-item v-for="(item, i) in stats.top_downloads" :key="i" class="mb-2 rounded bg-surface-light">
                         <template v-slot:prepend>
                             <v-avatar color="surface-variant" size="24" class="mr-2 text-caption font-weight-bold">
                                 {{ i + 1 }}
@@ -95,7 +95,7 @@
 
         <!-- Trend Chart -->
         <v-col cols="12">
-          <v-card class="rounded-xl pa-4" border>
+          <v-card class="rounded pa-4" border>
             <v-card-title class="font-weight-bold">
                  <v-icon color="info" class="mr-2">mdi-chart-timeline-variant</v-icon>
                  最近 30 天趋势
@@ -145,11 +145,65 @@ const loading = ref(true);
 const mapLoaded = ref(false);
 const theme = useTheme();
 
-// Helper to map country names if needed (very basic)
+// Helper to map country names to ECharts world map names
 const mapCountryName = (name) => {
-    // Basic mapping or return as is. The API likely returns English or Chinese names.
-    // ECharts world map usually expects English names.
-    return name; 
+    if (!name) return '';
+    
+    // Common mappings (Chinese/ISO/Variations -> ECharts Standard Name)
+    const nameMap = {
+        '中国': 'China',
+        'CN': 'China',
+        'China': 'China',
+        
+        '美国': 'United States',
+        'USA': 'United States',
+        'US': 'United States',
+        'United States of America': 'United States',
+        
+        '英国': 'United Kingdom',
+        'UK': 'United Kingdom',
+        'Great Britain': 'United Kingdom',
+        
+        '俄罗斯': 'Russia',
+        'Russian Federation': 'Russia',
+        'RU': 'Russia',
+        
+        '德国': 'Germany',
+        'DE': 'Germany',
+        
+        '法国': 'France',
+        'FR': 'France',
+        
+        '日本': 'Japan',
+        'JP': 'Japan',
+        
+        '韩国': 'South Korea',
+        'Korea': 'South Korea',
+        'KR': 'South Korea',
+        
+        '加拿大': 'Canada',
+        'CA': 'Canada',
+        
+        '澳大利亚': 'Australia',
+        'AU': 'Australia',
+        
+        '巴西': 'Brazil',
+        'BR': 'Brazil',
+        
+        '印度': 'India',
+        'IN': 'India',
+
+        '新加坡': 'Singapore',
+        'SG': 'Singapore',
+
+        '香港': 'Hong Kong',
+        'HK': 'Hong Kong',
+        
+        '台湾': 'Taiwan',
+        'TW': 'Taiwan',
+    };
+
+    return nameMap[name] || nameMap[name.trim()] || name; 
 };
 
 const mapOption = computed(() => {
@@ -166,7 +220,10 @@ const mapOption = computed(() => {
         backgroundColor: 'transparent',
         tooltip: {
             trigger: 'item',
-            formatter: '{b}: {c} (Visits)'
+            formatter: function(params) {
+                const value = Number.isFinite(params.value) ? params.value : 0;
+                return `${params.name}: ${value} (Visits)`;
+            }
         },
         visualMap: {
             min: 0,
@@ -221,12 +278,15 @@ const trendOption = computed(() => {
         },
         legend: {
             data: ['访问量', '下载量'],
-            textStyle: { color: textColor }
+            textStyle: { color: textColor },
+            bottom: 0,
+            left: 'center'
         },
         grid: {
             left: '3%',
             right: '4%',
-            bottom: '3%',
+            bottom: '15%',
+            top: '10%',
             containLabel: true
         },
         xAxis: {

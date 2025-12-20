@@ -3,8 +3,8 @@
     <v-app-bar :elevation="0" border color="surface-light" class="px-2">
       <template v-slot:prepend>
         <v-app-bar-nav-icon v-if="!mobile" variant="text" @click.stop="drawer = !drawer"></v-app-bar-nav-icon>
-        <v-avatar color="primary" size="32" class="ml-2 mr-2 cursor-pointer" @click="showAbout = true">
-           <span class="text-h6 font-weight-bold text-white">L</span>
+        <v-avatar size="32" class="ml-2 mr-2 cursor-pointer" @click="showAbout = true">
+           <v-img src="/favicon.svg" alt="Logo"></v-img>
         </v-avatar>
       </template>
 
@@ -38,10 +38,10 @@
 
     <v-navigation-drawer v-if="!mobile" v-model="drawer" elevation="1">
       <v-list nav class="pa-2">
-        <v-list-item prepend-icon="mdi-home-variant" title="首页" value="home" @click="tab = 'home'" :active="tab === 'home'" rounded="xl"></v-list-item>
-        <v-list-item prepend-icon="mdi-folder-multiple" title="文件浏览" value="files" @click="tab = 'files'" :active="tab === 'files'" rounded="xl"></v-list-item>
-        <v-list-item prepend-icon="mdi-chart-timeline-variant" title="数据统计" value="stats" @click="tab = 'stats'" :active="tab === 'stats'" rounded="xl"></v-list-item>
-        <v-list-item prepend-icon="mdi-api" title="API 文档" value="api" @click="tab = 'api'" :active="tab === 'api'" rounded="xl"></v-list-item>
+        <v-list-item prepend-icon="mdi-home-variant" title="首页" value="home" @click="tab = 'home'" :active="tab === 'home'" rounded></v-list-item>
+        <v-list-item prepend-icon="mdi-folder-multiple" title="文件浏览" value="files" @click="tab = 'files'" :active="tab === 'files'" rounded></v-list-item>
+        <v-list-item prepend-icon="mdi-chart-timeline-variant" title="数据统计" value="stats" @click="tab = 'stats'" :active="tab === 'stats'" rounded></v-list-item>
+        <v-list-item prepend-icon="mdi-api" title="API 文档" value="api" @click="tab = 'api'" :active="tab === 'api'" rounded></v-list-item>
       </v-list>
       
       <template v-slot:append>
@@ -60,7 +60,7 @@
           </v-window-item>
 
           <v-window-item value="files">
-            <FileBrowser />
+            <FileBrowser @go-home="tab = 'home'" />
           </v-window-item>
 
           <v-window-item value="stats">
@@ -85,7 +85,7 @@
       </v-container>
     </v-main>
 
-    <v-bottom-navigation v-if="mobile" v-model="tab" grow color="primary" elevation="4">
+    <v-bottom-navigation v-if="mobile" v-model="tab" grow color="primary" elevation="1">
       <v-btn value="home">
         <v-icon>mdi-home-variant</v-icon>
         <span>首页</span>
@@ -109,10 +109,10 @@
 
     <!-- About Dialog -->
     <v-dialog v-model="showAbout" max-width="400">
-      <v-card class="text-center pa-4 rounded-xl">
+      <v-card class="text-center pa-4 rounded">
         <v-card-text>
-          <v-avatar color="primary" size="64" class="mb-4 elevation-3">
-            <span class="text-h3 font-weight-bold text-white">L</span>
+          <v-avatar size="64" class="mb-4">
+            <v-img src="/favicon.svg" alt="Logo"></v-img>
           </v-avatar>
           <h3 class="text-h5 font-weight-bold mb-1">柠枺镜像</h3>
           <div class="text-subtitle-2 text-medium-emphasis mb-4">Lemwood Mirror Service</div>

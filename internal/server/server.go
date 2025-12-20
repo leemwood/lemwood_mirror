@@ -102,7 +102,7 @@ func (s *State) clearLatestFlag(infoPath string) error {
 func (s *State) Routes(mux *http.ServeMux) {
 	// 静态 UI
 	staticDir := filepath.Join("web", "dist")
-	assetsDir := filepath.Join("web", "assets")
+	assetsDir := filepath.Join("web", "dist", "assets")
 
 	// 安全静态资源处理器 - /dist/
 	mux.HandleFunc("/dist/", func(w http.ResponseWriter, r *http.Request) {

@@ -24,7 +24,7 @@ jobs:
         node-version: '24'
 
     - name: Install frontend dependencies
-      run: npm ci
+      run: npm i
       working-directory: ./web
 
     - name: Build frontend

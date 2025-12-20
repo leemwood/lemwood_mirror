@@ -151,19 +151,54 @@ func (d *Downloader) DownloadLatest(ctx context.Context, launcher string, destBa
 	return indexPath, nil
 }
 
+// 缓存公网 IP，避免重复请求
+var (
+	publicIP     string
+	publicIPOnce sync.Once
+	publicIPMu   sync.RWMutex
+)
+
 func getPublicIP() (string, error) {
-	resp, err := http.Get("http://ifconfig.me/ip")
+	// 先检查缓存
+	publicIPMu.RLock()
+	cachedIP := publicIP
+	publicIPMu.RUnlock()
+	
+	if cachedIP != "" {
+		return cachedIP, nil
+	}
+	
+	// 使用 sync.Once 确保只请求一次
+	var err error
+	publicIPOnce.Do(func() {
+		resp, reqErr := http.Get("http://ifconfig.me/ip")
+		if reqErr != nil {
+			err = reqErr
+			return
+		}
+		defer resp.Body.Close()
+
+		ipBytes, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			err = readErr
+			return
+		}
+
+		ipStr := string(ipBytes)
+		publicIPMu.Lock()
+		publicIP = ipStr
+		publicIPMu.Unlock()
+	})
+	
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
-
-	ip, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	return string(ip), nil
+	
+	publicIPMu.RLock()
+	result := publicIP
+	publicIPMu.RUnlock()
+	
+	return result, nil
 }
 
 func (d *Downloader) downloadAsset(ctx context.Context, client *http.Client, asset *github.ReleaseAsset, dir, assetProxyURL string, xgetEnabled bool, xgetDomain string) error {

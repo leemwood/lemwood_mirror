@@ -19,6 +19,7 @@ type IPInfo struct {
 	Region  string `json:"regionName"`
 	City    string `json:"city"`
 	Query   string `json:"query"`
+	Expires time.Time // 缓存过期时间
 }
 
 // IP 缓存，避免重复请求
@@ -34,8 +35,12 @@ func RecordVisit(r *http.Request) {
 	ua := r.UserAgent()
 	referer := r.Referer()
 
-	// 忽略静态资源（可根据需要调整）
-	if strings.HasPrefix(path, "/dist/") || path == "/favicon.svg" {
+	// 忽略静态资源和非API请求
+	if strings.HasPrefix(path, "/dist/") || 
+	   strings.HasPrefix(path, "/assets/") ||
+	   path == "/favicon.svg" ||
+	   path == "/" ||
+	   path == "/index.html" {
 		return
 	}
 
@@ -116,8 +121,11 @@ func getIPInfo(ip string) *IPInfo {
 
 	ipMutex.RLock()
 	if info, ok := ipCache[ip]; ok {
-		ipMutex.RUnlock()
-		return info
+		// 检查缓存是否过期（24小时）
+		if time.Now().Before(info.Expires) {
+			ipMutex.RUnlock()
+			return info
+		}
 	}
 	ipMutex.RUnlock()
 
@@ -135,6 +143,8 @@ func getIPInfo(ip string) *IPInfo {
 	}
 
 	if info.Status == "success" {
+		// 设置缓存过期时间为24小时
+		info.Expires = time.Now().Add(24 * time.Hour)
 		ipMutex.Lock()
 		ipCache[ip] = &info
 		ipMutex.Unlock()

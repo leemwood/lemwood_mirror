@@ -1,66 +1,145 @@
 <template>
   <v-app>
-    <v-app-bar :elevation="2" color="surface">
-      <v-app-bar-title class="font-weight-bold">
+    <v-app-bar :elevation="0" border color="surface-light" class="px-2">
+      <template v-slot:prepend>
+        <v-app-bar-nav-icon v-if="!mobile" variant="text" @click.stop="drawer = !drawer"></v-app-bar-nav-icon>
+        <v-avatar color="primary" size="32" class="ml-2 mr-2 cursor-pointer" @click="showAbout = true">
+           <span class="text-h6 font-weight-bold text-white">L</span>
+        </v-avatar>
+      </template>
+
+      <v-app-bar-title 
+        class="font-weight-bold cursor-pointer" 
+        @click="showAbout = true"
+        style="user-select: none;"
+      >
         柠枺镜像
+        <v-tooltip activator="parent" location="bottom">关于本站</v-tooltip>
       </v-app-bar-title>
 
       <template v-slot:append>
         <v-btn
-          variant="text"
-          class="mr-2"
-          @click="showApiDocs = !showApiDocs"
-          :color="showApiDocs ? 'primary' : ''"
-        >
-          API 文档
-        </v-btn>
-        
-        <v-btn
-          variant="flat"
+          :variant="mobile ? 'text' : 'flat'"
+          :icon="mobile"
           color="primary"
-          class="mr-4"
+          class="mr-2"
           @click="manualRefresh"
           :loading="refreshing"
         >
-          手动刷新
+          <v-icon>mdi-refresh</v-icon>
+          <span v-if="!mobile" class="ml-2">刷新</span>
         </v-btn>
 
-        <v-btn icon @click="toggleTheme">
+        <v-btn icon @click="toggleTheme" variant="text">
           <v-icon>{{ theme.global.current.value.dark ? 'mdi-weather-sunny' : 'mdi-weather-night' }}</v-icon>
         </v-btn>
       </template>
     </v-app-bar>
 
+    <v-navigation-drawer v-if="!mobile" v-model="drawer" elevation="1">
+      <v-list nav class="pa-2">
+        <v-list-item prepend-icon="mdi-home-variant" title="首页" value="home" @click="tab = 'home'" :active="tab === 'home'" rounded="xl"></v-list-item>
+        <v-list-item prepend-icon="mdi-folder-multiple" title="文件浏览" value="files" @click="tab = 'files'" :active="tab === 'files'" rounded="xl"></v-list-item>
+        <v-list-item prepend-icon="mdi-chart-timeline-variant" title="数据统计" value="stats" @click="tab = 'stats'" :active="tab === 'stats'" rounded="xl"></v-list-item>
+        <v-list-item prepend-icon="mdi-api" title="API 文档" value="api" @click="tab = 'api'" :active="tab === 'api'" rounded="xl"></v-list-item>
+      </v-list>
+      
+      <template v-slot:append>
+        <div class="pa-4 text-caption text-center text-medium-emphasis">
+          v1.0.0
+        </div>
+      </template>
+    </v-navigation-drawer>
+
     <v-main class="bg-background">
-      <v-container>
-        <v-expand-transition>
-          <div v-show="showApiDocs">
-            <ApiDocs />
-          </div>
-        </v-expand-transition>
+      <v-container class="pb-16 px-4 pt-6" fluid style="max-width: 1200px">
+        <v-window v-model="tab" disabled transition="scroll-x-transition" reverse-transition="scroll-x-reverse-transition">
+          <v-window-item value="home">
+            <Announcements />
+            <VersionList ref="versionListRef" />
+          </v-window-item>
+
+          <v-window-item value="files">
+            <FileBrowser />
+          </v-window-item>
+
+          <v-window-item value="stats">
+            <Statistics ref="statsRef" />
+          </v-window-item>
+
+          <v-window-item value="api">
+             <ApiDocs />
+          </v-window-item>
+        </v-window>
         
-        <Announcements />
-        
-        <VersionList ref="versionListRef" />
-        
-        <Statistics ref="statsRef" />
-        
-        <FileBrowser />
+        <v-footer class="text-center d-flex flex-column py-6 text-medium-emphasis mt-8 bg-transparent">
+            <div class="d-flex align-center gap-2">
+               <span>&copy; {{ new Date().getFullYear() }} Lemwood Mirror</span>
+            </div>
+            <div class="text-caption mt-2">
+                <a href="https://beian.miit.gov.cn" target="_blank" class="text-decoration-none text-medium-emphasis hover-link">
+                   新ICP备2024015133号-5
+                </a>
+            </div>
+        </v-footer>
       </v-container>
     </v-main>
 
-    <v-footer class="text-center d-flex flex-column py-4 text-medium-emphasis">
-      <div>Lemwood Mirror</div>
-      <div class="text-caption mt-1">
-        备案信息：<a href="https://beian.miit.gov.cn" target="_blank" class="text-decoration-none text-medium-emphasis">新ICP备2024015133号-5</a>
-      </div>
-    </v-footer>
+    <v-bottom-navigation v-if="mobile" v-model="tab" grow color="primary" elevation="4">
+      <v-btn value="home">
+        <v-icon>mdi-home-variant</v-icon>
+        <span>首页</span>
+      </v-btn>
+
+      <v-btn value="files">
+        <v-icon>mdi-folder-multiple</v-icon>
+        <span>文件</span>
+      </v-btn>
+
+      <v-btn value="stats">
+        <v-icon>mdi-chart-timeline-variant</v-icon>
+        <span>统计</span>
+      </v-btn>
+
+      <v-btn value="api">
+        <v-icon>mdi-api</v-icon>
+        <span>API</span>
+      </v-btn>
+    </v-bottom-navigation>
+
+    <!-- About Dialog -->
+    <v-dialog v-model="showAbout" max-width="400">
+      <v-card class="text-center pa-4 rounded-xl">
+        <v-card-text>
+          <v-avatar color="primary" size="64" class="mb-4 elevation-3">
+            <span class="text-h3 font-weight-bold text-white">L</span>
+          </v-avatar>
+          <h3 class="text-h5 font-weight-bold mb-1">柠枺镜像</h3>
+          <div class="text-subtitle-2 text-medium-emphasis mb-4">Lemwood Mirror Service</div>
+          
+          <v-divider class="mb-4"></v-divider>
+          
+          <p class="text-body-2 mb-4">
+            这是一个提供各类启动器及组件下载的高速镜像站。致力于为开发者和用户提供稳定、快速的下载体验。
+          </p>
+          
+          <div class="d-flex justify-center gap-4 mb-2">
+             <v-btn variant="text" size="small" prepend-icon="mdi-web" href="https://zs.lemwood.cn/" target="_blank">官网</v-btn>
+             <v-btn variant="text" size="small" prepend-icon="mdi-github" href="https://github.com" target="_blank">GitHub</v-btn>
+          </div>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn color="primary" variant="tonal" block @click="showAbout = false">关闭</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-app>
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import { useTheme } from 'vuetify';
+import { ref, watch, onMounted } from 'vue';
+import { useTheme, useDisplay } from 'vuetify';
 import { scan } from './services/api';
 
 import ApiDocs from './components/ApiDocs.vue';
@@ -70,8 +149,11 @@ import Statistics from './components/Statistics.vue';
 import FileBrowser from './components/FileBrowser.vue';
 
 const theme = useTheme();
-const showApiDocs = ref(false);
+const { mobile } = useDisplay();
 const refreshing = ref(false);
+const tab = ref('home');
+const drawer = ref(true);
+const showAbout = ref(false);
 
 const versionListRef = ref(null);
 const statsRef = ref(null);
@@ -84,7 +166,6 @@ const manualRefresh = async () => {
   refreshing.value = true;
   try {
     await scan();
-    // Refresh child components
     if (versionListRef.value) await versionListRef.value.refresh();
     if (statsRef.value) await statsRef.value.refresh();
   } catch (e) {
@@ -93,7 +174,31 @@ const manualRefresh = async () => {
     refreshing.value = false;
   }
 };
+
+onMounted(() => {
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme) theme.global.name.value = savedTheme;
+  
+  const savedTab = localStorage.getItem('currentTab');
+  if (savedTab) tab.value = savedTab;
+});
+
+watch(tab, (val) => localStorage.setItem('currentTab', val));
+watch(() => theme.global.name.value, (val) => localStorage.setItem('theme', val));
 </script>
+
+<style>
+.bg-background {
+  background-color: rgb(var(--v-theme-background));
+}
+.cursor-pointer {
+  cursor: pointer;
+}
+.hover-link:hover {
+  color: rgb(var(--v-theme-primary)) !important;
+  text-decoration: underline !important;
+}
+</style>
 
 <style>
 /* Global background override for Vuetify 3 app to ensure full coverage */

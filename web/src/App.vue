@@ -4,7 +4,7 @@
       <template v-slot:prepend>
         <v-app-bar-nav-icon v-if="!mobile" variant="text" @click.stop="drawer = !drawer"></v-app-bar-nav-icon>
         <v-avatar size="32" class="ml-2 mr-2 cursor-pointer" @click="showAbout = true">
-           <v-img src="/favicon.svg" alt="Logo"></v-img>
+           <v-img src="https://cdn.mengze.vip/gh/JanePHPDev/Blog-Static-Resource@main/images/b4ee27d31312bdb9.svg" alt="Logo"></v-img>
         </v-avatar>
       </template>
 
@@ -112,7 +112,7 @@
       <v-card class="text-center pa-4 rounded">
         <v-card-text>
           <v-avatar size="64" class="mb-4">
-            <v-img src="/favicon.svg" alt="Logo"></v-img>
+            <v-img src="https://cdn.mengze.vip/gh/JanePHPDev/Blog-Static-Resource@main/images/b4ee27d31312bdb9.svg" alt="Logo"></v-img>
           </v-avatar>
           <h3 class="text-h5 font-weight-bold mb-1">柠枺镜像</h3>
           <div class="text-subtitle-2 text-medium-emphasis mb-4">Lemwood Mirror Service</div>
@@ -120,11 +120,11 @@
           <v-divider class="mb-4"></v-divider>
           
           <p class="text-body-2 mb-4">
-            这是一个提供各类启动器及组件下载的高速镜像站。致力于为开发者和用户提供稳定、快速的下载体验。
+            这是一个提供各类Minecraft启动器及核心组件下载的高速镜像站，致力于为开发者与玩家打造稳定、快速的资源获取体验。基于腾讯云200Mbps高速服务器与自研Go语言Mirror架构，我们确保主流启动器如HMCL、PCL2、BakaXL及其依赖库的分发效率，无论是日常更新还是开发调试，都能享受流畅可靠的下载服务。
           </p>
           
           <div class="d-flex justify-center gap-4 mb-2">
-             <v-btn variant="text" size="small" prepend-icon="mdi-web" href="https://zs.lemwood.cn/" target="_blank">官网</v-btn>
+             <v-btn variant="text" size="small" prepend-icon="mdi-web" href="https://zs.lemwood.cn/" target="_blank">赞赏我</v-btn>
              <v-btn variant="text" size="small" prepend-icon="mdi-github" href="https://github.com" target="_blank">GitHub</v-btn>
           </div>
         </v-card-text>

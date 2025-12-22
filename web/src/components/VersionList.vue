@@ -22,9 +22,7 @@
         v-for="item in launcherList" 
         :key="item.name" 
         cols="12" 
-        sm="6" 
-        md="4" 
-        lg="3"
+        sm="6"
       >
         <v-hover v-slot="{ isHovering, props }">
           <v-card 
@@ -33,24 +31,31 @@
             class="h-100 transition-swing rounded d-flex flex-column"
             border
           >
-            <div :class="`bg-${item.color}-lighten-5 pa-6 d-flex justify-center align-center position-relative`" style="height: 160px;">
-               <v-avatar :color="item.color" size="80">
-                  <v-icon size="40" color="white">{{ item.icon }}</v-icon>
-               </v-avatar>
-               <v-chip 
-                 v-if="item.latest" 
-                 color="success" 
-                 size="small" 
-                 variant="flat" 
-                 class="position-absolute top-0 right-0 ma-4 font-weight-bold"
-               >
-                 {{ item.latest }}
-               </v-chip>
+            <div class="logo-background-container pa-6 d-flex justify-center align-center position-relative" style="height: 160px; overflow: hidden;">
+              <img 
+                :src="item.logoUrl" 
+                class="logo-background"
+                alt=""
+              />
+              <img 
+                :src="item.logoUrl" 
+                class="logo-foreground"
+                :alt="item.displayName"
+              />
+              <v-chip 
+                v-if="item.latest" 
+                color="success" 
+                size="small" 
+                variant="flat" 
+                class="position-absolute top-0 right-0 ma-4 font-weight-bold"
+              >
+                {{ item.latest }}
+              </v-chip>
             </div>
 
             <v-card-item class="pt-4">
               <v-card-title class="text-h6 font-weight-bold text-center">
-                {{ item.name }}
+                {{ item.displayName }}
               </v-card-title>
               <v-card-subtitle class="text-center mt-1">
                 最近更新: {{ formatDate(item.lastUpdated) }}
@@ -58,42 +63,54 @@
             </v-card-item>
 
             <v-spacer></v-spacer>
-
-            <v-card-actions class="pa-4 pt-0 d-flex flex-column gap-2">
-              <v-btn 
-                block 
-                color="primary" 
-                variant="flat" 
-                size="large" 
-                prepend-icon="mdi-download"
-                class="rounded"
-                :href="getLatestDownloadUrl(item)"
-                v-if="item.hasAssets"
-              >
-                下载最新版
-              </v-btn>
-              
-              <v-btn 
-                block 
-                variant="tonal" 
-                size="large"
-                class="rounded ml-0"
-                @click="openHistory(item)"
-              >
-                历史版本
-              </v-btn>
+            
+            <v-card-actions class="pa-4 pt-0 ma-auto">
+              <v-btn-group class="w-100" density="comfortable">
+                <v-btn 
+                  v-if="item.hasAssets"
+                  color="primary" 
+                  variant="flat"
+                  size="large"
+                  class="flex-1"
+                  :href="item.latestDownloadUrl"
+                  prepend-icon="mdi-download"
+                >
+                  下载最新版
+                </v-btn>
+                
+                <v-btn 
+                  variant="tonal"
+                  size="large"
+                  class="flex-1"
+                  @click="openHistory(item)"
+                  prepend-icon="mdi-history"
+                >
+                  历史版本
+                </v-btn>
+                
+                <v-btn 
+                  v-if="item.hasAssets"
+                  color="primary"
+                  variant="outlined"
+                  size="large"
+                  class="flex-1"
+                  @click="copyLink(item.latestDownloadUrl)"
+                  prepend-icon="mdi-content-copy"
+                >
+                  复制链接
+                </v-btn>
+              </v-btn-group>
             </v-card-actions>
           </v-card>
         </v-hover>
       </v-col>
     </v-row>
 
-    <!-- History Dialog -->
     <v-dialog v-model="historyDialog" max-width="900" scrollable transition="dialog-bottom-transition">
       <v-card class="rounded" v-if="selectedLauncher">
         <v-toolbar color="surface" class="px-2 border-b">
            <v-toolbar-title class="font-weight-bold">
-             {{ selectedLauncher.name }} 版本历史
+             {{ selectedLauncher.displayName }} 版本历史
            </v-toolbar-title>
            <v-spacer></v-spacer>
            <v-btn icon="mdi-close" variant="text" @click="historyDialog = false"></v-btn>
@@ -161,6 +178,15 @@
 import { ref, computed, onMounted } from 'vue';
 import { getStatus, getLatest } from '../services/api';
 
+const LAUNCHER_INFO_MAP = {
+  'zl': { displayName: 'ZalithLauncher', logoUrl: 'https://cdn.mengze.vip/gh/JanePHPDev/Blog-Static-Resource@main/images/34c1ec9e07f826df.webp' },
+  'zl2': { displayName: 'ZalithLauncher2', logoUrl: 'https://cdn.mengze.vip/gh/JanePHPDev/Blog-Static-Resource@main/images/ee0028bd82493eb3.webp' },
+  'hmcl': { displayName: 'HMCL', logoUrl: 'https://cdn.mengze.vip/gh/JanePHPDev/Blog-Static-Resource@main/images/3835841e4b9b7abf.jpeg' },
+  'MG': { displayName: 'MobileGlues', logoUrl: 'https://cdn.mengze.vip/gh/JanePHPDev/Blog-Static-Resource@main/images/3625548d2639a024.png' },
+  'fcl': { displayName: 'FoldCraftLauncher', logoUrl: 'https://cdn.mengze.vip/gh/JanePHPDev/Blog-Static-Resource@main/images/dc5e0ee14d8f54f0.png' },
+  'shizuku': { displayName: 'Shizuku', logoUrl: 'https://cdn.mengze.vip/gh/JanePHPDev/Blog-Static-Resource@main/images/f7067665f073b4cc.png' }
+};
+
 const rawLaunchers = ref({});
 const latestMap = ref({});
 const loading = ref(true);
@@ -173,16 +199,22 @@ const launcherList = computed(() => {
     const versions = rawLaunchers.value[name];
     const latestVersion = latestMap.value[name];
     const latestObj = versions.find(v => (v.tag_name || v.name) === latestVersion) || versions[0];
+    const info = LAUNCHER_INFO_MAP[name] || { displayName: name, logoUrl: 'https://cdn.zeinklab.com/gh/JanePHPDev/Blog-Static-Resource@main/images/b4ee27d31312bdb9.svg' };
+    
+    const latestDownloadUrl = latestObj && latestObj.assets && latestObj.assets.length > 0
+      ? getAssetUrl(name, latestObj, latestObj.assets[0])
+      : '#';
     
     return {
       name,
+      displayName: info.displayName,
+      logoUrl: info.logoUrl,
       versions,
       latest: latestVersion,
       lastUpdated: versions.length ? versions[0].published_at : null,
-      icon: getIcon(name),
-      color: getColor(name),
       hasAssets: latestObj && latestObj.assets && latestObj.assets.length > 0,
-      latestObj
+      latestObj,
+      latestDownloadUrl
     };
   });
 });
@@ -193,9 +225,8 @@ const loadData = async () => {
     const [statusRes, latestRes] = await Promise.all([getStatus(), getLatest()]);
     
     const data = statusRes.data;
-    // Sort contents
     for (const key in data) {
-        data[key].sort((a, b) => String(b.tag_name || b.name).localeCompare(String(a.tag_name || a.name)));
+        data[key].sort((a, b) => String(b.tag_name || b.name).localeCompare(String(a.tag_name || b.name)));
     }
     rawLaunchers.value = data;
     latestMap.value = latestRes.data;
@@ -223,37 +254,11 @@ const getAssetUrl = (launcherName, version, asset) => {
     return `/download/${launcherName}/${version.tag_name || version.name}/${asset.name}`;
 };
 
-const getLatestDownloadUrl = (item) => {
-   if (!item.latestObj || !item.latestObj.assets || !item.latestObj.assets.length) return '#';
-   // Default to first asset of latest version
-   return getAssetUrl(item.name, item.latestObj, item.latestObj.assets[0]);
-};
-
 const copyLink = (url) => {
     const fullUrl = url.startsWith('http') ? url : window.location.origin + url;
     navigator.clipboard.writeText(fullUrl).then(() => {
         snackbar.value = true;
     });
-};
-
-const getIcon = (name) => {
-    const n = name.toLowerCase();
-    if (n.includes('hmcl')) return 'mdi-cube-outline';
-    if (n.includes('pcl')) return 'mdi-controller';
-    if (n.includes('baka')) return 'mdi-ghost';
-    if (n.includes('shizuku')) return 'mdi-water';
-    if (n.includes('mt')) return 'mdi-file-tree';
-    return 'mdi-package-variant';
-};
-
-const getColor = (name) => {
-    const n = name.toLowerCase();
-    if (n.includes('hmcl')) return 'orange';
-    if (n.includes('pcl')) return 'light-blue';
-    if (n.includes('baka')) return 'deep-purple';
-    if (n.includes('shizuku')) return 'cyan';
-    if (n.includes('mt')) return 'green';
-    return 'blue-grey';
 };
 
 onMounted(() => {
@@ -264,5 +269,46 @@ defineExpose({ refresh: loadData });
 </script>
 
 <style scoped>
-.gap-2 { gap: 8px; }
+.gap-2 { 
+  gap: 8px; 
+}
+
+.logo-background-container {
+  position: relative;
+}
+
+.logo-background {
+  position: absolute;
+  width: 150%;
+  height: 150%;
+  object-fit: cover;
+  filter: blur(20px);
+  opacity: 0.3;
+  transform: scale(1.2);
+}
+
+.logo-foreground {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  z-index: 1;
+  border-radius: 12px;
+}
+
+@media (max-width: 600px) {
+  .logo-foreground {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .v-btn {
+    font-size: 14px;
+    padding: 0 8px !important;
+  }
+  
+  .v-btn--density-comfortable {
+    height: 40px;
+  }
+}
 </style>

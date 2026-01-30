@@ -55,7 +55,7 @@ const links = [
             </nav>
             <div class="mt-auto">
                <div class="text-sm text-muted-foreground text-center">
-                   v1.0.0
+                   v3.14.7
                </div>
             </div>
           </SheetContent>

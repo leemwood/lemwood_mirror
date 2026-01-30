@@ -250,7 +250,7 @@ defineExpose({ refresh: loadData });
                                 :key="asset.name"
                                 class="flex items-center justify-between text-sm rounded-md border p-2 bg-muted/30"
                             >
-                                <div class="flex-1 overflow-x-auto whitespace-nowrap scrollbar-hide mr-2">
+                                <div class="flex-1 min-w-0 overflow-x-auto whitespace-nowrap scrollbar-hide mr-2">
                                     <span class="font-medium" :title="asset.name">{{ asset.name }}</span>
                                 </div>
                                 <div class="flex shrink-0 gap-1">

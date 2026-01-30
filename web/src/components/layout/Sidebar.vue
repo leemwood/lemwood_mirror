@@ -1,7 +1,7 @@
 <script setup>
 import { useRoute } from 'vue-router'
 import { cn } from '@/lib/utils'
-import { Home, Folder, BarChart2, FileText, Github } from 'lucide-vue-next'
+import { Home, Folder, BarChart2, FileText, Github, Info } from 'lucide-vue-next'
 import Button from '@/components/ui/Button.vue'
 
 const route = useRoute()
@@ -11,6 +11,7 @@ const links = [
   { name: '文件浏览', path: '/files', icon: Folder },
   { name: '数据统计', path: '/stats', icon: BarChart2 },
   { name: 'API 文档', path: '/api', icon: FileText },
+  { name: '关于', path: '/about', icon: Info },
 ]
 </script>
 
@@ -44,7 +45,7 @@ const links = [
     </div>
     <div class="mt-auto p-4">
         <div class="text-xs text-muted-foreground text-center">
-            v3.14.6
+            v3.14.7
         </div>
     </div>
   </div>

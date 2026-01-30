@@ -1,17 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { getStatus, getLatest } from '@/services/api';
-import { TabsRoot, TabsList, TabsTrigger, TabsContent } from 'radix-vue';
-import { Search, File, Folder, Download, Copy, Loader2, FileArchive, HardDrive } from 'lucide-vue-next';
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { Search, File, Folder, Download, Copy, Loader2, FileArchive, HardDrive, ChevronRight, Home, ArrowLeft } from 'lucide-vue-next';
 import Input from '@/components/ui/Input.vue';
 import Button from '@/components/ui/Button.vue';
 import Badge from '@/components/ui/Badge.vue';
@@ -21,29 +11,26 @@ import { useClipboard } from '@vueuse/core';
 
 const loading = ref(true);
 const searchQuery = ref('');
-const launchers = ref([]);
+const launchers = ref({});
 const latestData = ref({});
-const activeTab = ref('');
 const { copy, copied } = useClipboard();
+
+// Navigation State
+const currentPath = ref([]); // Array of { name: string, id: string, type: 'root'|'launcher'|'version' }
 
 const loadData = async () => {
   loading.value = true;
-  
   try {
     const [statusRes, latestRes] = await Promise.all([getStatus(), getLatest()]);
-    
-    launchers.value = Object.entries(statusRes.data).map(([name, versions]) => ({
-      name,
-      versions: versions.sort((a, b) => 
-        String(b.tag_name || b.name).localeCompare(String(a.tag_name || a.name))
-      )
-    }));
-    
+    // Sort launchers
+    const sortedLaunchers = {};
+    Object.keys(statusRes.data).sort().forEach(key => {
+        sortedLaunchers[key] = statusRes.data[key].sort((a, b) => 
+            String(b.tag_name || b.name).localeCompare(String(a.tag_name || a.name))
+        );
+    });
+    launchers.value = sortedLaunchers;
     latestData.value = latestRes.data;
-    
-    if (launchers.value.length && !activeTab.value) {
-      activeTab.value = launchers.value[0].name;
-    }
   } catch (error) {
     console.error(error);
   } finally {
@@ -54,7 +41,7 @@ const loadData = async () => {
 const getFileIcon = (filename) => {
   const ext = filename.split('.').pop()?.toLowerCase();
   if (['zip', 'tar', 'gz', '7z', 'rar'].includes(ext)) return FileArchive;
-  if (['exe', 'msi', 'apk', 'dmg'].includes(ext)) return HardDrive; // Application-ish
+  if (['exe', 'msi', 'apk', 'dmg'].includes(ext)) return HardDrive;
   return File;
 };
 
@@ -62,11 +49,9 @@ const formatDate = (dateString) => {
   if (!dateString) return '未知';
   try {
     return new Date(dateString).toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
     });
   } catch {
     return dateString;
@@ -77,49 +62,79 @@ const copyUrl = (url) => {
   copy(url);
 };
 
-const filteredLaunchers = computed(() => {
-  const query = searchQuery.value.toLowerCase().trim();
-  const result = [];
+// --- Navigation Logic ---
 
-  launchers.value.forEach(launcher => {
-    const files = [];
-    
-    launcher.versions.forEach(version => {
-      const versionName = version.tag_name || version.name;
-      const isLatest = latestData.value[launcher.name] === versionName;
-      
-      version.assets?.forEach(asset => {
-        const matchesSearch = !query || 
-          launcher.name.toLowerCase().includes(query) ||
-          versionName.toLowerCase().includes(query) ||
-          asset.name.toLowerCase().includes(query);
-        
-        if (matchesSearch) {
-          files.push({
-            id: `${launcher.name}-${versionName}-${asset.name}`,
-            name: asset.name,
-            version: versionName,
-            published_at: version.published_at,
-            isLatest,
-            launcher: launcher.name,
-            downloadUrl: asset.url && asset.url.startsWith('http') 
-              ? asset.url 
-              : `${window.location.origin}/download/${launcher.name}/${versionName}/${asset.name}`
-          });
-        }
-      });
-    });
-
-    if (files.length) {
-      result.push({
-        name: launcher.name,
-        files: files.sort((a, b) => b.isLatest - a.isLatest || b.published_at.localeCompare(a.published_at)),
-        totalFiles: files.length
-      });
+const navigateTo = (item, type) => {
+    if (type === 'launcher') {
+        currentPath.value = [{ name: item, id: item, type: 'launcher' }];
+    } else if (type === 'version') {
+        currentPath.value.push({ name: item.name, id: item.id, type: 'version', data: item.data });
     }
-  });
+};
 
-  return result.sort((a, b) => a.name.localeCompare(b.name));
+const navigateUp = () => {
+    currentPath.value.pop();
+};
+
+const navigateToBreadcrumb = (index) => {
+    if (index === -1) {
+        currentPath.value = [];
+    } else {
+        currentPath.value = currentPath.value.slice(0, index + 1);
+    }
+};
+
+// --- Computed Data for Current View ---
+
+const currentItems = computed(() => {
+    const query = searchQuery.value.toLowerCase().trim();
+    
+    // If searching, we might want to show a flat list of matching files across all launchers?
+    // For now, let's keep navigation but filter current view. 
+    // If search is active at root, maybe filter launchers.
+    
+    const depth = currentPath.value.length;
+    
+    if (depth === 0) {
+        // Root: Show Launchers
+        return Object.keys(launchers.value).map(name => ({
+            id: name,
+            name: name,
+            type: 'launcher',
+            count: launchers.value[name].length,
+            latest: latestData.value[name]
+        })).filter(l => !query || l.name.toLowerCase().includes(query));
+    } else if (depth === 1) {
+        // Launcher: Show Versions
+        const launcherName = currentPath.value[0].id;
+        const versions = launchers.value[launcherName] || [];
+        
+        return versions.map(v => ({
+            id: v.tag_name || v.name,
+            name: v.tag_name || v.name,
+            type: 'version',
+            date: v.published_at,
+            isLatest: latestData.value[launcherName] === (v.tag_name || v.name),
+            data: v,
+            fileCount: v.assets?.length || 0
+        })).filter(v => !query || v.name.toLowerCase().includes(query));
+    } else if (depth === 2) {
+         // Version: Show Files
+         const versionData = currentPath.value[1].data;
+         const launcherName = currentPath.value[0].id;
+         const versionName = currentPath.value[1].id;
+         
+         return (versionData.assets || []).map(asset => ({
+             id: asset.name,
+             name: asset.name,
+             type: 'file',
+             size: asset.size, // API doesn't always give size, but if it did...
+             downloadUrl: asset.url && asset.url.startsWith('http') 
+              ? asset.url 
+              : `${window.location.origin}/download/${launcherName}/${versionName}/${asset.name}`
+         })).filter(f => !query || f.name.toLowerCase().includes(query));
+    }
+    return [];
 });
 
 onMounted(() => {
@@ -128,122 +143,98 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col h-full space-y-6 max-w-full overflow-hidden">
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
-       <div class="min-w-0">
-           <h2 class="text-3xl font-bold tracking-tight truncate">文件浏览</h2>
-           <p class="text-muted-foreground truncate">浏览所有已收录的镜像文件</p>
-       </div>
-       <div class="relative w-full md:w-96">
-           <Search class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-           <Input
-             v-model="searchQuery"
-             type="search"
-             placeholder="搜索文件名、版本或启动器..."
-             class="pl-8 bg-background"
-           />
-       </div>
+  <div class="flex flex-col h-full space-y-4 max-w-full">
+    <!-- Header & Breadcrumbs -->
+    <div class="flex flex-col space-y-4 shrink-0">
+        <div class="flex items-center justify-between gap-4">
+             <div class="flex items-center gap-2 overflow-hidden text-sm font-medium text-muted-foreground">
+                 <Button variant="ghost" size="icon" class="h-8 w-8 shrink-0" @click="navigateToBreadcrumb(-1)" :disabled="!currentPath.length">
+                     <Home class="h-4 w-4" />
+                 </Button>
+                 <template v-for="(crumb, index) in currentPath" :key="crumb.id">
+                     <ChevronRight class="h-4 w-4 shrink-0 opacity-50" />
+                     <Button variant="ghost" size="sm" class="h-8 px-2 truncate max-w-[120px]" @click="navigateToBreadcrumb(index)">
+                         {{ crumb.name }}
+                     </Button>
+                 </template>
+             </div>
+             <div class="relative w-40 md:w-64 shrink-0">
+                 <Search class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                 <Input
+                   v-model="searchQuery"
+                   type="search"
+                   placeholder="筛选..."
+                   class="pl-8 h-9 bg-background/50 backdrop-blur border-white/10"
+                 />
+             </div>
+        </div>
     </div>
 
-    <div v-if="loading" class="space-y-4">
-       <div class="flex gap-2 overflow-x-auto pb-2">
-         <Skeleton class="h-10 w-24 rounded-md shrink-0" v-for="i in 4" :key="i" />
-       </div>
-       <div class="rounded-md border">
-          <div class="p-4 space-y-4">
-             <Skeleton class="h-10 w-full" v-for="i in 5" :key="i" />
-          </div>
-       </div>
+    <!-- Content Area -->
+    <div v-if="loading" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <Skeleton class="aspect-square rounded-xl" v-for="i in 10" :key="i" />
     </div>
 
-    <div v-else-if="!filteredLaunchers.length" class="flex flex-col items-center justify-center p-12 border rounded-lg border-dashed bg-muted/10">
-       <div class="flex h-20 w-20 items-center justify-center rounded-full bg-muted">
-           <Folder class="h-10 w-10 text-muted-foreground opacity-50" />
-       </div>
-       <h3 class="mt-4 text-lg font-semibold">无匹配结果</h3>
-       <p class="mb-4 mt-2 text-center text-sm text-muted-foreground max-w-sm">
-         我们找不到与您的搜索相关的任何文件。请尝试使用不同的关键词。
-       </p>
-       <Button variant="outline" @click="loadData">刷新列表</Button>
+    <div v-else-if="!currentItems.length" class="flex flex-col items-center justify-center py-20 text-muted-foreground">
+        <Folder class="h-16 w-16 mb-4 opacity-20" />
+        <p>空文件夹</p>
     </div>
 
-    <TabsRoot v-else v-model="activeTab" class="flex flex-col space-y-4 min-h-0">
-      <div class="overflow-x-auto pb-2 -mx-1 px-1 shrink-0">
-          <TabsList class="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground">
-            <TabsTrigger
-              v-for="launcher in filteredLaunchers"
-              :key="launcher.name"
-              :value="launcher.name"
-              class="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-            >
-              {{ launcher.name }}
-              <span class="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">{{ launcher.totalFiles }}</span>
-            </TabsTrigger>
-          </TabsList>
-      </div>
+    <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 pb-20">
+        <!-- Back Button (if not root) -->
+        <div 
+            v-if="currentPath.length > 0" 
+            @click="navigateUp"
+            class="group relative flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-muted-foreground/20 bg-muted/5 hover:bg-muted/10 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
+        >
+             <ArrowLeft class="h-6 w-6 text-muted-foreground group-hover:text-foreground transition-colors" />
+             <span class="text-xs font-medium text-muted-foreground">返回上一级</span>
+        </div>
 
-      <TabsContent
-        v-for="launcher in filteredLaunchers"
-        :key="launcher.name"
-        :value="launcher.name"
-        class="outline-none min-h-0"
-      >
-        <div class="rounded-md border bg-card overflow-hidden">
-            <div class="overflow-x-auto w-full">
-                <Table class="min-w-full">
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead class="min-w-[150px] sm:min-w-[200px] max-w-[300px]">文件名</TableHead>
-                            <TableHead class="min-w-[80px]">版本</TableHead>
-                            <TableHead class="hidden md:table-cell min-w-[150px]">发布时间</TableHead>
-                            <TableHead class="text-right min-w-[100px]">操作</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        <TableRow v-for="file in launcher.files" :key="file.id">
-                            <TableCell class="font-medium">
-                                <div class="flex items-center gap-3 min-w-0">
-                                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-muted/50">
-                                        <component :is="getFileIcon(file.name)" class="h-5 w-5 text-muted-foreground" />
-                                    </div>
-                                    <div class="flex flex-col min-w-0 flex-1">
-                                        <div class="overflow-x-auto whitespace-nowrap scrollbar-hide">
-                                            <span class="font-medium" :title="file.name">{{ file.name }}</span>
-                                        </div>
-                                        <span class="md:hidden text-xs text-muted-foreground">{{ formatDate(file.published_at) }}</span>
-                                    </div>
-                                    <Badge v-if="file.isLatest" variant="secondary" class="bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900 dark:text-green-100 border-transparent h-5 text-[10px] px-1.5 shrink-0">LATEST</Badge>
-                                </div>
-                            </TableCell>
-                            <TableCell>
-                                <div class="inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 text-foreground">
-                                    {{ file.version }}
-                                </div>
-                            </TableCell>
-                            <TableCell class="hidden md:table-cell text-muted-foreground text-sm">
-                                {{ formatDate(file.published_at) }}
-                            </TableCell>
-                            <TableCell class="text-right">
-                                <div class="flex justify-end gap-2">
-                                    <Button size="sm" variant="outline" class="h-8 px-2 lg:px-3" as="a" :href="file.downloadUrl">
-                                        <Download class="mr-2 h-3.5 w-3.5" />
-                                        <span class="hidden lg:inline">下载</span>
-                                    </Button>
-                                    <Button size="sm" variant="ghost" class="h-8 w-8 px-0" @click="copyUrl(file.downloadUrl)">
-                                        <Copy class="h-3.5 w-3.5" />
-                                        <span class="sr-only">复制链接</span>
-                                    </Button>
-                                </div>
-                            </TableCell>
-                        </TableRow>
-                    </TableBody>
-                </Table>
+        <!-- Items -->
+        <div 
+            v-for="item in currentItems" 
+            :key="item.id"
+            @click="item.type !== 'file' ? navigateTo(item.type === 'launcher' ? item.name : item, item.type) : null"
+            :class="cn(
+                'group relative flex flex-col justify-between p-3 rounded-xl border border-white/5 bg-background/40 backdrop-blur-md shadow-sm transition-all duration-200',
+                item.type !== 'file' ? 'cursor-pointer hover:bg-background/60 hover:border-white/20 hover:shadow-md hover:scale-[1.02] active:scale-[0.98]' : ''
+            )"
+        >
+            <!-- Icon Area -->
+            <div class="flex items-start justify-between mb-2">
+                 <div class="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 text-primary group-hover:from-primary/20 group-hover:to-primary/10 transition-colors">
+                     <Folder v-if="item.type === 'launcher'" class="h-5 w-5" />
+                     <Folder v-else-if="item.type === 'version'" class="h-5 w-5" />
+                     <component v-else :is="getFileIcon(item.name)" class="h-5 w-5" />
+                 </div>
+                 <div v-if="item.isLatest" class="px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600 text-[9px] font-bold uppercase tracking-wider border border-green-500/20">
+                     Latest
+                 </div>
+                 <div v-if="item.type === 'file'" class="flex gap-0.5">
+                      <Button size="icon" variant="ghost" class="h-6 w-6" @click.stop="copyUrl(item.downloadUrl)">
+                          <Copy class="h-3 w-3" />
+                      </Button>
+                      <Button size="icon" variant="ghost" class="h-6 w-6" as="a" :href="item.downloadUrl">
+                          <Download class="h-3 w-3" />
+                      </Button>
+                 </div>
+            </div>
+
+            <!-- Text Area -->
+            <div class="flex flex-col gap-0.5 min-w-0">
+                <h3 class="font-medium truncate text-sm leading-none" :title="item.name">{{ item.name }}</h3>
+                <div class="flex items-center justify-between text-[10px] text-muted-foreground mt-1">
+                    <span v-if="item.type === 'launcher'">{{ item.count }} 版本</span>
+                    <span v-else-if="item.type === 'version'">{{ formatDate(item.date) }}</span>
+                    <span v-else>文件</span>
+                </div>
             </div>
         </div>
-      </TabsContent>
-    </TabsRoot>
+    </div>
   </div>
 </template>
+
 
 <style scoped>
 .scrollbar-hide::-webkit-scrollbar {

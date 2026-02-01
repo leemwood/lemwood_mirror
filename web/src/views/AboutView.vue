@@ -53,7 +53,7 @@ import Button from '@/components/ui/Button.vue'
           </CardHeader>
           <CardContent class="px-4 pb-4 md:px-6 md:pb-6 space-y-4 text-muted-foreground leading-relaxed">
             <p>
-              Lemwood Mirror 是一个自托管的开源镜像服务，专为 Minecraft 社区打造。它致力于提供稳定、高速的启动器及相关工具下载体验。
+              Lemwood Mirror 是一个自托管的开源镜像服务，专为 Minecraft Java版 社区打造。它致力于提供稳定、高速的启动器及相关工具下载体验。
               通过全自动化的 GitHub Release 追踪系统，我们确保用户能第一时间获取到最新的软件版本，摆脱网络环境的束缚。
             </p>
           </CardContent>

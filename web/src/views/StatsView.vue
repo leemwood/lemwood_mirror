@@ -173,7 +173,7 @@ const trendOption = computed(() => {
 onMounted(async () => {
     try {
         const [mapRes, statsRes] = await Promise.all([
-             fetch('https://cdn.jsdelivr.net/npm/echarts@4.9.0/map/json/world.json').then(r => r.json()),
+             fetch('https://fastly.jsdelivr.net/npm/echarts@4.9.0/map/json/world.json').then(r => r.json()),
              getStats()
         ]);
         registerMap('world', mapRes);

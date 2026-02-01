@@ -7,9 +7,9 @@ import { Github, Heart } from 'lucide-vue-next'
     <div class="container flex flex-col items-center justify-between gap-4 md:h-16 md:flex-row">
       <div class="flex flex-col items-center gap-4 md:flex-row md:gap-2">
         <p class="text-center text-sm leading-loose text-muted-foreground md:text-left">
-          Built with <Heart class="inline-block h-4 w-4 text-red-500 animate-pulse" /> by 
+          - Built with <Heart class="inline-block h-4 w-4 text-red-500 animate-pulse" /> by 
           <a href="/#/about" class="font-medium underline underline-offset-4 hover:text-foreground">
-            Lemwood & MengZe2
+            Lemwood & MengZe2 -
           </a>
           .
         </p>

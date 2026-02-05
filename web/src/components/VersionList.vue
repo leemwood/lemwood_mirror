@@ -27,8 +27,11 @@ import zl2Logo from '@/assets/images/ee0028bd82493eb3.webp'
 import hmclLogo from '@/assets/images/3835841e4b9b7abf.jpeg'
 import mgLogo from '@/assets/images/3625548d2639a024.png'
 import fclLogo from '@/assets/images/dc5e0ee14d8f54f0.png'
-import fclTurnipLogo from '@/assets/images/4bd121929a04f08e.png'
+import fclTurnipLogo from '@/assets/images/Image_1770256620866_693.webp'
 import shizukuLogo from '@/assets/images/f7067665f073b4cc.png'
+import luminolLogo from '@/assets/images/c25a955166388e1257c23d01c78a62e6.webp'
+import leafLogo from '@/assets/images/leaf.png'
+import leavesLogo from '@/assets/images/Leaves.png'
 
 const LAUNCHER_INFO_MAP = {
   'zl': { displayName: 'ZalithLauncher', logoUrl: zlLogo },
@@ -36,8 +39,11 @@ const LAUNCHER_INFO_MAP = {
   'hmcl': { displayName: 'HMCL', logoUrl: hmclLogo },
   'MG': { displayName: 'MobileGlues', logoUrl: mgLogo },
   'fcl': { displayName: 'FoldCraftLauncher', logoUrl: fclLogo },
-  'FCL_Trunip': { displayName: 'FCL_Trunip Plugin', logoUrl: fclTurnipLogo },
-  'shizuku': { displayName: 'Shizuku', logoUrl: shizukuLogo }
+  'FCL_Turnip': { displayName: 'FCL_Turnip Plugin', logoUrl: fclTurnipLogo },
+  'shizuku': { displayName: 'Shizuku', logoUrl: shizukuLogo },
+  'leaves': { displayName: 'Leaves 服务端', logoUrl: leavesLogo },
+  'leaf': { displayName: 'Leaf 服务端', logoUrl: leafLogo },
+  'luminol': { displayName: 'Luminol 服务端', logoUrl: luminolLogo }
 };
 
 

@@ -16,12 +16,12 @@ jobs:
     strategy:
       matrix:
         include:
-          - { goos: windows, goarch: amd64, extension: .exe, archive: zip }
-          - { goos: windows, goarch: arm64, extension: .exe, archive: zip }
-          - { goos: windows, goarch: "386", extension: .exe, archive: zip }
-          - { goos: linux, goarch: amd64, extension: "", archive: tar.gz }
-          - { goos: linux, goarch: arm64, extension: "", archive: tar.gz }
-          - { goos: linux, goarch: "386", extension: "", archive: tar.gz }
+          - { goos: windows, goarch: amd64, label: amd64, extension: .exe, archive: zip }
+          - { goos: windows, goarch: arm64, label: arm64, extension: .exe, archive: zip }
+          - { goos: windows, goarch: "386", label: x86, extension: .exe, archive: zip }
+          - { goos: linux, goarch: amd64, label: amd64, extension: "", archive: tar.gz }
+          - { goos: linux, goarch: arm64, label: arm64, extension: "", archive: tar.gz }
+          - { goos: linux, goarch: "386", label: x86, extension: "", archive: tar.gz }
 
     steps:
     - name: Checkout code
@@ -50,31 +50,31 @@ jobs:
         GOOS: ${{ matrix.goos }}
         GOARCH: ${{ matrix.goarch }}
       run: |
-        BINARY_NAME="mirror-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.extension }}"
+        BINARY_NAME="mirror-${{ matrix.goos }}-${{ matrix.label }}${{ matrix.extension }}"
         go build -o "$BINARY_NAME" ./cmd/mirror
 
     - name: Package Artifact (Windows)
       if: matrix.archive == 'zip'
       run: |
-        PKG_NAME="mirror-${{ matrix.goos }}-${{ matrix.goarch }}.zip"
-        zip -r "$PKG_NAME" "mirror-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.extension }}" config.json web/dist
+        PKG_NAME="mirror-${{ matrix.goos }}-${{ matrix.label }}.zip"
+        zip -r "$PKG_NAME" "mirror-${{ matrix.goos }}-${{ matrix.label }}${{ matrix.extension }}" config.json web/dist
 
     - name: Package Artifact (Linux)
       if: matrix.archive == 'tar.gz'
       run: |
-        PKG_NAME="mirror-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz"
-        tar -czvf "$PKG_NAME" "mirror-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.extension }}" config.json web/dist
+        PKG_NAME="mirror-${{ matrix.goos }}-${{ matrix.label }}.tar.gz"
+        tar -czvf "$PKG_NAME" "mirror-${{ matrix.goos }}-${{ matrix.label }}${{ matrix.extension }}" config.json web/dist
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: mirror-${{ matrix.goos }}-${{ matrix.goarch }}
-        path: mirror-${{ matrix.goos }}-${{ matrix.goarch }}.${{ matrix.archive }}
+        name: mirror-${{ matrix.goos }}-${{ matrix.label }}
+        path: mirror-${{ matrix.goos }}-${{ matrix.label }}.${{ matrix.archive }}
 
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
       with:
-        files: mirror-${{ matrix.goos }}-${{ matrix.goarch }}.${{ matrix.archive }}
+        files: mirror-${{ matrix.goos }}-${{ matrix.label }}.${{ matrix.archive }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

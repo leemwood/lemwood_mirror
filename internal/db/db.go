@@ -25,6 +25,21 @@ func InitDB(storagePath string) error {
 		return fmt.Errorf("打开数据库失败: %w", err)
 	}
 
+	// 性能优化：启用 WAL 模式
+	// WAL 模式允许并发读写，显著提高性能
+	pragmas := []string{
+		"PRAGMA journal_mode=WAL",
+		"PRAGMA synchronous=NORMAL",
+		"PRAGMA busy_timeout=5000",
+		"PRAGMA foreign_keys=ON",
+	}
+
+	for _, pragma := range pragmas {
+		if _, err := DB.Exec(pragma); err != nil {
+			return fmt.Errorf("执行 PRAGMA 失败 (%s): %w", pragma, err)
+		}
+	}
+
 	if err := DB.Ping(); err != nil {
 		return fmt.Errorf("连接数据库失败: %w", err)
 	}

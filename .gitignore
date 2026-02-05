@@ -6,4 +6,3 @@ download/
 
 # Trae AI specific files
 .trae/
-!.trae/rules/

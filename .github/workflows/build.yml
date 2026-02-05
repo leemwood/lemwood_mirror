@@ -4,53 +4,77 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { goos: windows, goarch: amd64, extension: .exe, archive: zip }
+          - { goos: windows, goarch: arm64, extension: .exe, archive: zip }
+          - { goos: windows, goarch: "386", extension: .exe, archive: zip }
+          - { goos: linux, goarch: amd64, extension: "", archive: tar.gz }
+          - { goos: linux, goarch: arm64, extension: "", archive: tar.gz }
+          - { goos: linux, goarch: "386", extension: "", archive: tar.gz }
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
     - name: Set up Go
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@v5
       with:
         go-version: '1.21'
 
     - name: Set up Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
-        node-version: '24'
+        node-version: '20'
 
     - name: Install frontend dependencies
-      run: npm i
+      run: npm install
       working-directory: ./web
 
     - name: Build frontend
       run: npm run build
       working-directory: ./web
 
-    - name: Build for Windows
-      run: GOOS=windows GOARCH=amd64 go build -o mirror.exe ./cmd/mirror
+    - name: Build binary
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+      run: |
+        BINARY_NAME="mirror-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.extension }}"
+        go build -o "$BINARY_NAME" ./cmd/mirror
 
-    - name: Build for Linux
-      run: GOOS=linux GOARCH=amd64 go build -o mirror ./cmd/mirror
+    - name: Package Artifact (Windows)
+      if: matrix.archive == 'zip'
+      run: |
+        PKG_NAME="mirror-${{ matrix.goos }}-${{ matrix.goarch }}.zip"
+        zip -r "$PKG_NAME" "mirror-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.extension }}" config.json web/dist
 
-    - name: Package Windows Artifact
-      run: zip -r mirror-windows.zip mirror.exe config.json web/dist
+    - name: Package Artifact (Linux)
+      if: matrix.archive == 'tar.gz'
+      run: |
+        PKG_NAME="mirror-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz"
+        tar -czvf "$PKG_NAME" "mirror-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.extension }}" config.json web/dist
 
-    - name: Upload Windows Package
+    - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: mirror-windows-package
-        path: mirror-windows.zip
+        name: mirror-${{ matrix.goos }}-${{ matrix.goarch }}
+        path: mirror-${{ matrix.goos }}-${{ matrix.goarch }}.${{ matrix.archive }}
 
-    - name: Package Linux Artifact
-      run: tar -czvf mirror-linux.tar.gz mirror config.json web/dist
-
-    - name: Upload Linux Package
-      uses: actions/upload-artifact@v4
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
       with:
-        name: mirror-linux-package
-        path: mirror-linux.tar.gz
+        files: mirror-${{ matrix.goos }}-${{ matrix.goarch }}.${{ matrix.archive }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

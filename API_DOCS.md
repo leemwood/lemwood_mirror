@@ -9,10 +9,18 @@
 ### 1.1 认证机制
 - **认证方式**：基于 Bearer Token。
 - **Token 获取**：通过 `POST /api/login` 接口。
+- **安全加固**：采用前端预哈希 + 安装唯一盐值（Installation Salt）机制。
 - **Token 有效期**：24 小时。
 - **使用方式**：在请求头中携带 `Authorization: <token>`，或者在 Cookie 中携带 `admin_token=<token>`。
 
-### 1.2 安全中间件
+### 1.2 安全哈希机制
+为了防止彩虹表攻击和在非 HTTPS 环境下的明文传输，系统采用了以下流程：
+1. 客户端通过 `GET /api/auth/info` 获取服务器生成的唯一 `security_salt`。
+2. 客户端计算 `SHA-256(password + salt)`。
+3. 将该哈希值作为 `password` 字段发送至 `POST /api/login`。
+4. 服务端使用 `Bcrypt` 对收到的哈希值进行二次加密存储和校验。
+
+### 1.3 安全中间件
 所有 API 请求均经过安全中间件处理：
 - **IP 黑名单**：拦截 `ip_blacklist` 表中的 IP。
 - **路径遍历保护**：禁止包含 `..` 的路径请求。
@@ -27,13 +35,24 @@
 
 ## 2. 身份认证接口
 
-### 2.1 管理员登录
+### 2.1 获取认证信息
+- **端点**：`GET /api/auth/info`
+- **功能**：获取当前系统配置的管理员用户名和安装唯一盐值（Salt）。
+- **响应示例**：
+  ```json
+  {
+    "username": "admin",
+    "salt": "a1b2c3d4e5f6..."
+  }
+  ```
+
+### 2.2 管理员登录
 - **端点**：`POST /api/login`
 - **请求体**：
   ```json
   {
     "username": "admin",
-    "password": "your_password"
+    "password": "<SHA-256(password + salt)>"
   }
   ```
 - **响应示例** (200 OK)：
@@ -119,7 +138,8 @@
 - **获取配置**：`GET /api/admin/config`
   - 响应：返回 `config.json` 的所有字段（`admin_password` 会被清空以保安全）。
 - **更新配置**：`POST /api/admin/config`
-  - 请求体：完整的配置 JSON。如果 `admin_password` 不为空，则会重新进行 Bcrypt 哈希存储。
+  - 请求体：完整的配置 JSON。
+  - **注意**：如果需要更新 `admin_password`，该字段应填入 `SHA-256(new_password + salt)`。服务端会将其进行 Bcrypt 哈希后持久化。如果该字段为空，则保持原密码不变。
 
 ### 4.2 IP 黑名单管理
 - **获取黑名单**：`GET /api/admin/blacklist`

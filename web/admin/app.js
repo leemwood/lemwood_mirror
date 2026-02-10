@@ -8,6 +8,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabContents = document.querySelectorAll('.tab-content');
 
     let currentPath = '';
+    let authInfo = { username: 'admin', salt: '' };
+
+    // Fetch auth info (username and salt)
+    async function fetchAuthInfo() {
+        try {
+            const res = await fetch('/api/auth/info');
+            if (res.ok) {
+                authInfo = await res.json();
+                if (document.getElementById('username')) {
+                    document.getElementById('username').placeholder = `用户名 (默认: ${authInfo.username})`;
+                }
+            }
+        } catch (err) {
+            console.error('Failed to fetch auth info:', err);
+        }
+    }
+    fetchAuthInfo();
 
     // Check for existing token
     const token = localStorage.getItem('admin_token');
@@ -18,8 +35,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Login
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
+        const username = document.getElementById('username').value || authInfo.username;
+        const passwordRaw = document.getElementById('password').value;
+        const password = await hashPassword(passwordRaw);
 
         try {
             const res = await fetch('/api/login', {
@@ -47,6 +65,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // 辅助函数
+    async function hashPassword(password) {
+        if (!password) return '';
+        const encoder = new TextEncoder();
+        // 使用安装唯一的 salt 进行哈希，防止针对开源项目的通用彩虹表攻击
+        const data = encoder.encode(password + authInfo.salt);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
     async function apiFetch(url, options = {}) {
         const token = localStorage.getItem('admin_token');
         options.headers = options.headers || {};
@@ -207,7 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 仅当填写了密码时才发送
         if (form.admin_password.value) {
-            config.admin_password = form.admin_password.value;
+            config.admin_password = await hashPassword(form.admin_password.value);
         }
         if (form.github_token.value) {
             config.github_token = form.github_token.value;

@@ -171,6 +171,18 @@ func (s *State) AdminMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+func (s *State) handleAuthInfo(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]string{
+		"username": s.Config.AdminUser,
+		"salt":     s.Config.SecuritySalt,
+	})
+}
+
 func (s *State) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -213,6 +225,7 @@ func (s *State) handleAdminConfig(w http.ResponseWriter, r *http.Request) {
 		// 返回脱敏后的配置
 		cfgCopy := *s.Config
 		cfgCopy.AdminPassword = "" // 不返回密码哈希
+		cfgCopy.SecuritySalt = ""  // 不在配置编辑页返回盐
 		json.NewEncoder(w).Encode(cfgCopy)
 		return
 	}
@@ -235,6 +248,9 @@ func (s *State) handleAdminConfig(w http.ResponseWriter, r *http.Request) {
 			}
 			newCfg.AdminPassword = hashed
 		}
+
+		// 保持盐不变
+		newCfg.SecuritySalt = s.Config.SecuritySalt
 
 		if err := newCfg.Save(s.ProjectRoot); err != nil {
 			http.Error(w, "Failed to save config", http.StatusInternalServerError)
@@ -596,6 +612,7 @@ func (s *State) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/latest", s.handleLatestAll)
 	mux.HandleFunc("/api/latest/", s.handleLatestLauncher)
 	mux.HandleFunc("/api/stats", s.handleStats)
+	mux.HandleFunc("/api/auth/info", s.handleAuthInfo)
 
 	// Admin API
 	mux.HandleFunc("/api/login", s.handleLogin)

@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -35,6 +37,7 @@ type Config struct {
 	DownloadTimeoutMinutes int              `json:"download_timeout_minutes"`
 	ConcurrentDownloads    int              `json:"concurrent_downloads"`
 	DownloadUrlBase        string           `json:"download_url_base,omitempty"`
+	SecuritySalt           string           `json:"security_salt,omitempty"`
 	Launchers              []LauncherConfig `json:"launchers"`
 }
 
@@ -59,6 +62,11 @@ func LoadConfig(projectRoot string) (*Config, error) {
 	if cfg.CheckCron == "" {
 		cfg.CheckCron = "*/10 * * * *" // 默认每 10 分钟
 	}
+	// 自动生成安全盐
+	if cfg.SecuritySalt == "" {
+		cfg.SecuritySalt = generateRandomString(32)
+		_ = cfg.Save(projectRoot)
+	}
 	// 允许环境变量覆盖 GitHub 令牌
 	if env := os.Getenv("GITHUB_TOKEN"); env != "" {
 		cfg.GitHubToken = env
@@ -76,4 +84,12 @@ func (c *Config) Save(projectRoot string) error {
 		return fmt.Errorf("写入 config.json 失败: %w", err)
 	}
 	return nil
+}
+
+func generateRandomString(n int) string {
+	b := make([]byte, n/2)
+	if _, err := rand.Read(b); err != nil {
+		return "default_salt_if_rand_fails"
+	}
+	return hex.EncodeToString(b)
 }
